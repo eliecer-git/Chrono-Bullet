@@ -25,6 +25,7 @@
 - **`armas/fusil.js`**: Módulo 3D del fusil de asalto SCAR / M4 Chrono (vial de taquiones, engranajes cronográficos, cargador curvo y culata telescópica).
 - **`armas/francotirador.js`**: Módulo 3D del rifle de francotirador Chrono (chasis negro y oro, cañón largo, bípode plegado, cerrojo y mira telescópica con lente de reloj).
 - **`armas/escopeta.js`**: Módulo 3D de la escopeta pesada Chrono (chasis azul oscuro con hombreras biseladas, escudo térmico de cobre, engranaje de reloj dorado, recámara de plasma, doble cañón y corredera pump-action con estrías ergonómicas).
+- **`armas/canon_plasma.js`**: Módulo 3D del cañón de plasma Chrono (carcasa platino/gris claro, núcleo de plasma suspendido, anillo de reloj 3D giratorio, bobinas magnéticas, tobera tipo embudo y consola diegética con 5 segmentos luminosos `balaIndicador_1` a `5`).
 - **`game.js`**: Núcleo lógico del juego: bucle principal (game loop), física, control del jugador en primera persona, cámara, construcción procedural 3D de todas las armas, enemigos, proyectiles, efectos de partículas, shaders estilizados y sistema de tiempo.
 - **`audio.js`**: Gestor de audio y efectos de sonido sintetizados y procedurales (disparos, recargas, impactos, habilidades temporales).
 - **`three.min.js`**: Biblioteca Three.js para renderizado de gráficos 3D acelerados por GPU vía WebGL.
