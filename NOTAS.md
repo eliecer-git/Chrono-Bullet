@@ -20,6 +20,7 @@
 
 - **`index.html`**: Estructura principal del juego, contenedor del lienzo 3D (canvas), interfaz de usuario (HUD de salud, munición, tiempo y menús).
 - **`style.css`**: Hojas de estilo para la interfaz de usuario, tipografías, animaciones de pantalla, menús y elementos superpuestos del HUD.
+- **`armas/pistola.js`**: Módulo 3D de la pistola táctica Chrono (geometría, materiales PBR, corredera, armazón y detalles cronográficos).
 - **`game.js`**: Núcleo lógico del juego: bucle principal (game loop), física, control del jugador en primera persona, cámara, construcción procedural 3D de todas las armas, enemigos, proyectiles, efectos de partículas, shaders estilizados y sistema de tiempo.
 - **`audio.js`**: Gestor de audio y efectos de sonido sintetizados y procedurales (disparos, recargas, impactos, habilidades temporales).
 - **`three.min.js`**: Biblioteca Three.js para renderizado de gráficos 3D acelerados por GPU vía WebGL.
