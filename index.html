@@ -474,6 +474,9 @@
         </div>
 
         <div class="hud-right">
+          <button id="btn-debug-hud" class="cyber-btn debug-chip" title="Panel de Depuración (F3)">
+            📊 STATS
+          </button>
           <button id="btn-fullscreen-hud" class="cyber-btn fullscreen-chip" title="Pantalla Completa">
             ⛶
           </button>
@@ -485,6 +488,19 @@
           </button>
         </div>
       </header>
+
+      <!-- PANEL DE DEPURACIÓN (STATS DE RENDIMIENTO) -->
+      <div id="debug-perf-panel" class="debug-panel hidden">
+        <div class="debug-title">⚡ MONITOR DE RENDIMIENTO</div>
+        <div class="debug-row"><span class="debug-lbl">FPS:</span> <span id="debug-fps" class="debug-val green">60</span></div>
+        <div class="debug-row"><span class="debug-lbl">DRAW CALLS:</span> <span id="debug-draw-calls" class="debug-val">0</span></div>
+        <div class="debug-row"><span class="debug-lbl">TRIÁNGULOS:</span> <span id="debug-triangles" class="debug-val">0</span></div>
+        <div class="debug-row"><span class="debug-lbl">PIXEL RATIO:</span> <span id="debug-pixel-ratio" class="debug-val">1.0</span></div>
+        <div class="debug-row"><span class="debug-lbl">MODO MÓVIL:</span> <span id="debug-mobile-mode" class="debug-val">OFF</span></div>
+        <div class="debug-actions">
+          <button id="btn-toggle-mobile-mode" class="debug-toggle-btn">Cambiar Modo (PC/Móvil)</button>
+        </div>
+      </div>
 
       <!-- ÁREA DEL CANVAS 3D (THREE.JS WEBGL) -->
       <main id="canvas-wrapper">

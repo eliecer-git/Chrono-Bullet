@@ -928,23 +928,25 @@
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(75, 1000 / 650, 0.1, 500);
 
-  const isMobileDevice = /Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent) || ('ontouchstart' in window);
+  let isMobileDevice = /Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent) || ('ontouchstart' in window);
+  // Permitir forzar modo móvil para pruebas en PC
+  let forceMobileMode = isMobileDevice;
 
-  // Resolución interna: optimizada para mantener 60 FPS estables sin saturar el fill-rate de la GPU
-  const MAX_PIXEL_RATIO = Math.min(window.devicePixelRatio || 1, isMobileDevice ? 1.0 : 1.25);
-  let currentPixelRatio = Math.min(MAX_PIXEL_RATIO, 1.15);
+  // Resolución interna: en móvil máximo 1.0 para ahorrar GPU fill-rate (vital para Redmi 10)
+  const MAX_PIXEL_RATIO = Math.min(window.devicePixelRatio || 1, forceMobileMode ? 1.0 : 1.25);
+  let currentPixelRatio = Math.min(MAX_PIXEL_RATIO, forceMobileMode ? 1.0 : 1.15);
   const renderer = new THREE.WebGLRenderer({
     canvas: canvas,
-    antialias: !isMobileDevice,
+    antialias: !forceMobileMode,
     powerPreference: 'high-performance',
-    precision: isMobileDevice ? 'mediump' : 'highp'
+    precision: forceMobileMode ? 'mediump' : 'highp'
   });
   renderer.setSize(1000, 650, false);
   renderer.setPixelRatio(currentPixelRatio);
-  // Sombras y tone mapping: muy costosos en GPU de celular -> solo en PC
-  renderer.shadowMap.enabled = !isMobileDevice;
+  // Sombras y tone mapping: apagadas en móvil para reducir draw calls de depth map y cálculo de fragmentos
+  renderer.shadowMap.enabled = !forceMobileMode;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  if (!isMobileDevice) {
+  if (!forceMobileMode) {
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.1;
   }
@@ -1347,6 +1349,11 @@
   }`);
   }
   function applyFortniteShader(material, opts = {}) {
+    // En modo móvil (Redmi 10 y similares), apagamos el shader GLSL personalizado onBeforeCompile
+    // para evitar recompilaciones y sobrecarga de fragmentos en GPUs Mali/Adreno
+    if (forceMobileMode) {
+      return material;
+    }
     material.userData.fnStylized = true;
     material.userData.fnEdge = opts.edge !== undefined ? opts.edge : 0.0;
     material.userData.fnGrad = opts.grad !== undefined ? opts.grad : 0.18;
@@ -1354,6 +1361,38 @@
     material.onBeforeCompile = fortniteShaderPatch;
     material.customProgramCacheKey = fortniteShaderCacheKey;
     return material;
+  }
+
+  // Caché de materiales reutilizables para evitar crear duplicados
+  const materialCache = new Map();
+
+  // Función para crear materiales PBR o Lambert simplificado en móvil
+  function createStylizedPBR(hexColor, emissiveHex = 0x000000, emissiveInt = 0, roughness = 0.3, metalness = 0.1) {
+    const cacheKey = `${hexColor}_${emissiveHex}_${emissiveInt}_${roughness}_${metalness}_${forceMobileMode}`;
+    if (materialCache.has(cacheKey)) {
+      return materialCache.get(cacheKey);
+    }
+
+    let mat;
+    if (forceMobileMode) {
+      // En móvil: MeshLambertMaterial es ultra-ligero (Gouraud shading por vértice, sin cálculos caros de microfacetas PBR)
+      mat = new THREE.MeshLambertMaterial({
+        color: hexColor,
+        emissive: emissiveHex,
+        emissiveIntensity: emissiveInt * 1.5
+      });
+    } else {
+      mat = new THREE.MeshStandardMaterial({
+        color: hexColor,
+        emissive: emissiveHex,
+        emissiveIntensity: emissiveInt * 2.5,
+        roughness: roughness,
+        metalness: metalness
+      });
+    }
+
+    materialCache.set(cacheKey, mat);
+    return mat;
   }
 
   // ========================================================
@@ -1370,13 +1409,15 @@
 
     // Neón hiper-luminoso según la skin activa o el tema
     const neonHex = isGold ? 0xffea00 : (isVortex ? 0xc084fc : (isMatrix ? 0x22c55e : (isInferno ? 0xff3b30 : pal.primaryHex)));
-    const skinNeonMat = new THREE.MeshStandardMaterial({ 
-      color: neonHex,
-      emissive: neonHex,
-      emissiveIntensity: 4.5, // Brillo altísimo para el BloomPass
-      roughness: 0.1,
-      metalness: 0.2
-    });
+    const skinNeonMat = forceMobileMode
+      ? new THREE.MeshBasicMaterial({ color: neonHex })
+      : new THREE.MeshStandardMaterial({ 
+          color: neonHex,
+          emissive: neonHex,
+          emissiveIntensity: 4.5,
+          roughness: 0.1,
+          metalness: 0.2
+        });
 
     // Carga de mapas procedurales HD para el sistema de renderizado de armas
     const bmTex = getBrushedMetalTextures();
@@ -1384,21 +1425,6 @@
     const gripTex = getTacticalGripTextures();
     const woodTex = getWoodGrainTexture();
     const heatTex = getHeatStainTexture();
-    // ========================================================
-    // MATERIALES PBR ESTILIZADOS (VERDADERO ESTILO FORTNITE / UNREAL ENGINE)
-    // Cero bordes negros, cero cell-shading. Solo texturas lisas, vibrantes y físicamente precisas.
-    // ========================================================
-    
-    // Función auxiliar para crear materiales PBR nivel AAA sin texturas de ruido (Clean Fortnite Look)
-    function createStylizedPBR(hexColor, emissiveHex = 0x000000, emissiveInt = 0, roughness = 0.3, metalness = 0.1) {
-      return new THREE.MeshStandardMaterial({
-        color: hexColor,
-        emissive: emissiveHex,
-        emissiveIntensity: emissiveInt * 2.5, 
-        roughness: roughness,
-        metalness: metalness
-      });
-    }
 
     const steelDarkMat = createStylizedPBR(
       isGold ? 0xffea00 : (isVortex ? 0x1a0f30 : (isMatrix ? 0x064e3b : (isInferno ? 0x3d0b0b : 0x242a3a))),
@@ -1521,10 +1547,179 @@
     }
 
 
+    // Si está en modo móvil o para reducir llamadas de dibujo, optimizamos la jerarquía del arma
+    // fusionando piezas estáticas con el mismo material mientras protegemos piezas dinámicas
+    optimizeWeaponMeshes(group);
+
     // Hacer el arma más "Chunky" (proporciones exageradas tipo Fortnite)
     group.scale.set(1.2, 1.2, 1.0);
 
     return group;
+  }
+
+  // ========================================================
+  // OPTIMIZACIÓN: FUSIÓN DE PIEZAS ESTÁTICAS DE ARMAS (MERGE BUFFER GEOMETRIES)
+  // Agrupa mallas hijas que comparten el mismo material exacto, conservando sus transformaciones
+  // Protege explícitamente: balaIndicador_1 a 5, reloj, piezas de skin oUserData
+  // ========================================================
+  function optimizeWeaponMeshes(rootGroup) {
+    if (!rootGroup || !rootGroup.children || rootGroup.children.length === 0) return;
+
+    // Recolectar todas las mallas estáticas agrupadas por material
+    const meshesByMaterial = new Map();
+    const protectedMeshes = new Set();
+
+    rootGroup.traverse((child) => {
+      if (!child.isMesh) return;
+
+      // Proteger piezas que tengan nombres especiales o userData dinámico
+      const name = child.name || (child.parent ? child.parent.name : '');
+      const isProtected = 
+        name.includes('balaIndicador') || 
+        name.includes('anilloReloj') || 
+        name.includes('nucleo') || 
+        child.userData.dynamic ||
+        (child.parent && child.parent.userData && child.parent.userData.dynamic);
+
+      if (isProtected) {
+        protectedMeshes.add(child);
+        return;
+      }
+
+      const mat = child.material;
+      if (!mat) return;
+
+      if (!meshesByMaterial.has(mat)) {
+        meshesByMaterial.set(mat, []);
+      }
+      meshesByMaterial.get(mat).push(child);
+    });
+
+    // Actualizar matrices de mundo relativas al rootGroup
+    rootGroup.updateMatrixWorld(true);
+    const invRootMatrix = new THREE.Matrix4().copy(rootGroup.matrixWorld).invert();
+
+    // Para cada material con múltiples mallas estáticas, fusionamos sus geometrías
+    meshesByMaterial.forEach((meshList, mat) => {
+      if (meshList.length <= 1) return; // Nada que fusionar si es solo 1 malla
+
+      const geomsToMerge = [];
+      for (const m of meshList) {
+        if (!m.geometry) continue;
+
+        // Clonar y transformar la geometría al espacio local del rootGroup
+        const geomClone = m.geometry.clone();
+        m.updateMatrixWorld(true);
+        const relativeMatrix = new THREE.Matrix4().multiplyMatrices(invRootMatrix, m.matrixWorld);
+        geomClone.applyMatrix4(relativeMatrix);
+
+        // Asegurarse de que tenga normales y coordenadas consistentes
+        if (!geomClone.attributes.normal) {
+          geomClone.computeVertexNormals();
+        }
+        geomsToMerge.push(geomClone);
+      }
+
+      if (geomsToMerge.length > 1) {
+        const mergedGeom = mergeBufferGeometriesCustom(geomsToMerge);
+        if (mergedGeom) {
+          // Crear la malla combinada
+          const mergedMesh = new THREE.Mesh(mergedGeom, mat);
+          mergedMesh.name = (meshList[0].name || 'mergedMesh') + '_batched';
+          mergedMesh.castShadow = !forceMobileMode;
+          mergedMesh.receiveShadow = !forceMobileMode;
+
+          // Remover las mallas originales individuales de sus padres
+          for (const m of meshList) {
+            if (m.parent) {
+              m.parent.remove(m);
+            }
+            if (m.geometry && m.geometry.dispose) {
+              m.geometry.dispose();
+            }
+          }
+
+          // Añadir la malla combinada directamente al rootGroup
+          rootGroup.add(mergedMesh);
+        }
+      }
+    });
+  }
+
+  // Función nativa para fusionar geometrías BufferGeometry sin dependencias externas
+  function mergeBufferGeometriesCustom(geometries) {
+    if (!geometries || geometries.length === 0) return null;
+    if (geometries.length === 1) return geometries[0];
+
+    // Contar total de vértices e índices
+    let totalPosCount = 0;
+    let totalNormCount = 0;
+    let totalUvCount = 0;
+    let totalIndexCount = 0;
+    let hasIndices = false;
+
+    for (const g of geometries) {
+      if (g.attributes.position) totalPosCount += g.attributes.position.array.length;
+      if (g.attributes.normal) totalNormCount += g.attributes.normal.array.length;
+      if (g.attributes.uv) totalUvCount += g.attributes.uv.array.length;
+      if (g.index) {
+        hasIndices = true;
+        totalIndexCount += g.index.array.length;
+      } else if (g.attributes.position) {
+        totalIndexCount += g.attributes.position.count;
+      }
+    }
+
+    const merged = new THREE.BufferGeometry();
+    const posArray = new Float32Array(totalPosCount);
+    const normArray = totalNormCount > 0 ? new Float32Array(totalNormCount) : null;
+    const uvArray = totalUvCount > 0 ? new Float32Array(totalUvCount) : null;
+    const indexArray = new Uint32Array(totalIndexCount);
+
+    let posOffset = 0;
+    let normOffset = 0;
+    let uvOffset = 0;
+    let indexOffset = 0;
+    let vertexCountOffset = 0;
+
+    for (const g of geometries) {
+      const pos = g.attributes.position;
+      if (!pos) continue;
+
+      posArray.set(pos.array, posOffset);
+
+      if (normArray && g.attributes.normal) {
+        normArray.set(g.attributes.normal.array, normOffset);
+      }
+      if (uvArray && g.attributes.uv) {
+        uvArray.set(g.attributes.uv.array, uvOffset);
+      }
+
+      if (g.index) {
+        const idx = g.index.array;
+        for (let i = 0; i < idx.length; i++) {
+          indexArray[indexOffset + i] = idx[i] + vertexCountOffset;
+        }
+        indexOffset += idx.length;
+      } else {
+        for (let i = 0; i < pos.count; i++) {
+          indexArray[indexOffset + i] = i + vertexCountOffset;
+        }
+        indexOffset += pos.count;
+      }
+
+      posOffset += pos.array.length;
+      if (normArray && g.attributes.normal) normOffset += g.attributes.normal.array.length;
+      if (uvArray && g.attributes.uv) uvOffset += g.attributes.uv.array.length;
+      vertexCountOffset += pos.count;
+    }
+
+    merged.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+    if (normArray) merged.setAttribute('normal', new THREE.BufferAttribute(normArray, 3));
+    if (uvArray) merged.setAttribute('uv', new THREE.BufferAttribute(uvArray, 2));
+    merged.setIndex(new THREE.BufferAttribute(indexArray, 1));
+
+    return merged;
   }
 
   function addPlayerHandsToWeapon(group, weaponType, neonHex, skinNeonMat) {
@@ -5559,9 +5754,111 @@
         perfFrameCount = 0;
         perfTimeAccum = 0;
       }
+
+      // Actualizar Panel de Depuración (FPS, Draw Calls, Triángulos) si está visible
+      updateDebugPerfPanel(dt);
     }
 
     requestAnimationFrame(gameLoop);
+  }
+
+  // ========================================================
+  // PANEL DE DEPURACIÓN Y MONITOREO DE RENDIMIENTO
+  // ========================================================
+  let isDebugPanelOpen = false;
+  let debugFpsCounter = 0;
+  let debugFpsAccum = 0;
+  let currentFpsDisplay = 60;
+
+  const btnDebugHud = document.getElementById('btn-debug-hud');
+  const debugPerfPanel = document.getElementById('debug-perf-panel');
+  const debugFpsElem = document.getElementById('debug-fps');
+  const debugDrawCallsElem = document.getElementById('debug-draw-calls');
+  const debugTrianglesElem = document.getElementById('debug-triangles');
+  const debugPixelRatioElem = document.getElementById('debug-pixel-ratio');
+  const debugMobileModeElem = document.getElementById('debug-mobile-mode');
+  const btnToggleMobileMode = document.getElementById('btn-toggle-mobile-mode');
+
+  function toggleDebugPanel() {
+    isDebugPanelOpen = !isDebugPanelOpen;
+    if (debugPerfPanel) {
+      debugPerfPanel.classList.toggle('hidden', !isDebugPanelOpen);
+    }
+  }
+
+  if (btnDebugHud) {
+    btnDebugHud.addEventListener('click', toggleDebugPanel);
+  }
+
+  // Tecla de acceso rápido F3 para depuración
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'F3') {
+      e.preventDefault();
+      toggleDebugPanel();
+    }
+  });
+
+  // Alternador de modo móvil / PC para pruebas y banco de benchmarking
+  function applyMobilePerformanceMode(active) {
+    forceMobileMode = active;
+    renderer.setPixelRatio(active ? 1.0 : currentPixelRatio);
+    renderer.shadowMap.enabled = !active;
+    if (dirLight) dirLight.castShadow = !active;
+
+    // Limpiar caché de materiales para que las armas se regeneren con el material adecuado
+    materialCache.clear();
+
+    // Recrear arma del jugador si está activa
+    if (player && player.weapon) {
+      player.setupViewWeapon();
+    }
+
+    // Actualizar armas en el suelo
+    for (let gw of groundWeapons) {
+      if (gw.rebuildMesh) gw.rebuildMesh();
+    }
+
+    if (debugMobileModeElem) {
+      debugMobileModeElem.textContent = active ? 'ON (Móvil Ultra)' : 'OFF (PC PBR)';
+      debugMobileModeElem.className = 'debug-val ' + (active ? 'green' : 'yellow');
+    }
+  }
+
+  if (btnToggleMobileMode) {
+    btnToggleMobileMode.addEventListener('click', () => {
+      applyMobilePerformanceMode(!forceMobileMode);
+    });
+  }
+
+  function updateDebugPerfPanel(dt) {
+    debugFpsCounter++;
+    debugFpsAccum += dt;
+
+    if (debugFpsAccum >= 0.25) {
+      currentFpsDisplay = Math.round(debugFpsCounter / debugFpsAccum);
+      debugFpsCounter = 0;
+      debugFpsAccum = 0;
+
+      if (isDebugPanelOpen && renderer && renderer.info) {
+        if (debugFpsElem) {
+          debugFpsElem.textContent = currentFpsDisplay;
+          debugFpsElem.className = 'debug-val ' + (currentFpsDisplay >= 50 ? 'green' : (currentFpsDisplay >= 30 ? 'yellow' : 'red'));
+        }
+        if (debugDrawCallsElem) {
+          debugDrawCallsElem.textContent = renderer.info.render.calls;
+        }
+        if (debugTrianglesElem) {
+          debugTrianglesElem.textContent = renderer.info.render.triangles.toLocaleString();
+        }
+        if (debugPixelRatioElem) {
+          debugPixelRatioElem.textContent = (renderer.getPixelRatio ? renderer.getPixelRatio() : currentPixelRatio).toFixed(2);
+        }
+        if (debugMobileModeElem) {
+          debugMobileModeElem.textContent = forceMobileMode ? 'ON (Móvil Ultra)' : 'OFF (PC PBR)';
+          debugMobileModeElem.className = 'debug-val ' + (forceMobileMode ? 'green' : 'yellow');
+        }
+      }
+    }
   }
 
   // Ajuste de resolución dinámica para mantener proporción

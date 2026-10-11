@@ -2767,3 +2767,111 @@ body.is-touch .game-modal { background: rgba(4, 6, 10, 0.88); }
   letter-spacing: 1.5px;
 }
 
+/* ========================================================
+   PANEL DE DEPURACIÓN DE RENDIMIENTO (FPS & STATS)
+   ======================================================== */
+.debug-chip {
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(0, 240, 255, 0.4);
+  color: #00f0ff;
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.debug-chip:hover {
+  background: rgba(0, 240, 255, 0.2);
+  border-color: #00f0ff;
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.4);
+}
+
+.debug-panel {
+  position: absolute;
+  top: 75px;
+  right: 20px;
+  width: 240px;
+  background: rgba(8, 12, 20, 0.92);
+  border: 1px solid rgba(0, 240, 255, 0.4);
+  border-radius: 8px;
+  padding: 12px 14px;
+  z-index: 1000;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8), 0 0 15px rgba(0, 240, 255, 0.2);
+  backdrop-filter: blur(8px);
+  pointer-events: auto;
+  font-family: 'Consolas', monospace;
+  font-size: 0.82rem;
+}
+
+.debug-panel.hidden {
+  display: none !important;
+}
+
+.debug-title {
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  color: #00f0ff;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(0, 240, 255, 0.25);
+  font-weight: 700;
+}
+
+.debug-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 5px;
+  color: #cbd5e1;
+}
+
+.debug-lbl {
+  color: #94a3b8;
+  font-size: 0.75rem;
+}
+
+.debug-val {
+  font-weight: 700;
+  color: #38bdf8;
+}
+
+.debug-val.green {
+  color: #4ade80;
+}
+
+.debug-val.yellow {
+  color: #facc15;
+}
+
+.debug-val.red {
+  color: #f87171;
+}
+
+.debug-actions {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.debug-toggle-btn {
+  width: 100%;
+  background: rgba(14, 165, 233, 0.15);
+  border: 1px solid rgba(14, 165, 233, 0.4);
+  color: #38bdf8;
+  padding: 5px 8px;
+  border-radius: 4px;
+  font-family: var(--font-display);
+  font-size: 0.7rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.debug-toggle-btn:hover {
+  background: rgba(14, 165, 233, 0.35);
+  border-color: #38bdf8;
+}
+
+

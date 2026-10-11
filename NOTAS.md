@@ -24,9 +24,9 @@
 - **`armas/subfusil.js`**: Módulo 3D del subfusil Vector Chrono (geometría aerodinámica, emblema cronográfico, cargador extendido y culata retráctil).
 - **`armas/fusil.js`**: Módulo 3D del fusil de asalto SCAR / M4 Chrono (vial de taquiones, engranajes cronográficos, cargador curvo y culata telescópica).
 - **`armas/francotirador.js`**: Módulo 3D del rifle de francotirador Chrono (chasis negro y oro, cañón largo, bípode plegado, cerrojo y mira telescópica con lente de reloj).
-- **`armas/escopeta.js`**: Módulo 3D de la escopeta pesada Chrono (chasis azul oscuro con hombreras biseladas, escudo térmico de cobre, engranaje de reloj dorado, recámara de plasma, doble cañón y corredera pump-action con estrías ergonómicas).
+- **`armas/escopeta.js`**: Módulo 3D de la escopeta pesada Chrono (chasis rojo oscuro con bordes dorados, zonas profundas negro azulado, acentos turquesa emisivos, culata ergonómica biselada, tambor acentuado, símbolo de reloj frontal y doble cañón macizo).
 - **`armas/canon_plasma.js`**: Módulo 3D del cañón de plasma Chrono (carcasa platino/gris claro, núcleo de plasma suspendido, anillo de reloj 3D giratorio, bobinas magnéticas, tobera tipo embudo y consola diegética con 5 segmentos luminosos `balaIndicador_1` a `5`).
-- **`game.js`**: Núcleo lógico del juego: bucle principal (game loop), física, control del jugador en primera persona, cámara, construcción procedural 3D de todas las armas, enemigos, proyectiles, efectos de partículas, shaders estilizados y sistema de tiempo.
+- **`game.js`**: Núcleo lógico del juego: bucle principal (game loop), física, control del jugador en primera persona, cámara, construcción procedural 3D de todas las armas, enemigos, proyectiles, efectos de partículas, shaders estilizados, sistema de tiempo, optimización por batching/fusión de geometrías estáticas, reciclado de materiales y modo de alto rendimiento móvil con panel de depuración (FPS, draw calls, triángulos).
 - **`audio.js`**: Gestor de audio y efectos de sonido sintetizados y procedurales (disparos, recargas, impactos, habilidades temporales).
 - **`three.min.js`**: Biblioteca Three.js para renderizado de gráficos 3D acelerados por GPU vía WebGL.
 - **`mapa 10.mp4`**: Recurso multimedia de fondo/video para la ambientación o menú.
@@ -46,7 +46,15 @@
 
 ---
 
-## 5. Pendientes
+## 5. Optimización y Rendimiento Móvil
+- **Detección automática de móvil:** Limita `pixelRatio` a 1.0 máx, apaga antialias costoso y desactiva sombras dinámicas complejas.
+- **Materiales y Shaders:** En modo móvil conmuta PBR pesado a `MeshLambertMaterial` / sin `onBeforeCompile` GLSL para aliviar GPUs móviles como Mali G52 (Redmi 10).
+- **Fusión de Geometrías (Batching):** Combina mallas estáticas de cada arma con material compartido, reduciendo drásticamente las llamadas de dibujo (draw calls) y preservando los elementos dinámicos (`balaIndicador`, anillos de reloj).
+- **Monitor de Rendimiento:** Panel accesible con botón "STATS" o tecla `F3`, que mide FPS en tiempo real, draw calls (`renderer.info.render.calls`) y triángulos (`renderer.info.render.triangles`).
+
+---
+
+## 6. Pendientes
 - [ ] Shop con skins para armas y personajes.
 - [ ] Editor de colores por bloques para personalización de armas.
 - [ ] Sistema de niveles y progresión.
@@ -54,3 +62,4 @@
 - [ ] Zona segura (Safe Zone).
 - [ ] Vida en porcentaje *(dejar para el final)*.
 - [ ] Compra de balas / munición *(dejar para el final)*.
+
