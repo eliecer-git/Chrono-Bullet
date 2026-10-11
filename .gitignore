@@ -1,0 +1,32 @@
+# Dependencias y paquetes
+node_modules/
+package-lock.json
+
+# Archivos del sistema operativo
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+._*
+
+# Logs y cachés
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.cache/
+
+# Entornos y editores
+.env
+.env.local
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Temporales y respaldos
+*.tmp
+*.temp
+*.bak
+*~

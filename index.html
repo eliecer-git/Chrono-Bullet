@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#06080d">
+  <title>CHRONO BULLET | Tactical Time-Dilation Top-Down Shooter</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- CONTENEDOR PRINCIPAL DE PANTALLAS -->
+  <div id="app-container">
+
+    <!-- PANTALLA 1: INSTRUCCIONES (Primera vista obligatoria al cargar) -->
+    <section id="screen-instructions" class="screen active">
+      <div class="instructions-card glass-panel">
+        <header class="instructions-header">
+          <div class="cyber-badge">INICIALIZACIÓN DE SISTEMA</div>
+          <h1 class="glow-title">INSTRUCCIONES</h1>
+          <p class="subtitle">Supervivencia táctica en tiempo dilatado. Lee el manual de combate antes del despliegue.</p>
+        </header>
+
+        <div class="rules-grid">
+          <!-- Caja 1 -->
+          <article class="rule-box">
+            <div class="rule-num">1.</div>
+            <div class="rule-body">
+              <h2>El Tiempo y el Movimiento</h2>
+              <p>El tiempo avanza únicamente cuando el jugador se mueve o dispara. Si se detiene, el mundo se congela casi por completo (a un <strong>4% de velocidad</strong>) permitiendo ver las balas flotando en el aire y esquivarlas al milímetro.</p>
+            </div>
+          </article>
+
+          <!-- Caja 2 -->
+          <article class="rule-box">
+            <div class="rule-num">2.</div>
+            <div class="rule-body">
+              <h2>Muerte de 1 Disparo</h2>
+              <p>Un solo disparo elimina al jugador, pero el jugador también elimina a los enemigos de un solo impacto. Al morir, los enemigos se hacen añicos en <strong>esquirlas de cristal rojo</strong> y sueltan sus armas al suelo.</p>
+            </div>
+          </article>
+
+          <!-- Caja 3 -->
+          <article class="rule-box controls-box">
+            <div class="rule-num">3.</div>
+            <div class="rule-body">
+              <h2>Armas, Apuntado y Controles en 3D</h2>
+              <ul class="control-list">
+                <li><span class="key-badge">WASD</span> Moverte en el espacio 3D (acelera el tiempo al 100%).</li>
+                <li><span class="key-badge">Ratón</span> Mirar y apuntar libremente en 3D (Haz clic en pantalla para activar la cámara).</li>
+                <li><span class="key-badge">Clic Der / Izq</span> <strong>APUNTAR CON MIRA 3D & BULLET-TIME</strong>: Alinea la mira 3D del arma y ralentiza el tiempo al máximo durante un máximo de <strong>2 segundos</strong> (se recarga automáticamente al soltarlo).</li>
+                <li><span class="key-badge">Clic Izq</span> <strong>DISPARAR</strong> el arma equipada (o golpear si estás desarmado).</li>
+                <li><span class="key-badge">Q</span> <strong>USAR BOTIQUÍN (MOCHILA)</strong>. Curación de +2 vidas.</li>
+                <li><span class="key-badge">Espacio</span> <strong>LANZAR ARMA</strong> como proyectil cinético 3D letal.</li>
+                <li><span class="key-badge">Mantén E</span> Abrir cofres cibernéticos con armas pesadas.</li>
+                <li><span class="key-badge">R</span> Reinicio rápido del mapa.</li>
+                <li class="mobile-tip"><span class="key-badge">📱 EN CELULAR</span> Joystick para caminar. mitad derecha para mirar. Botones: [🎯 APUNTAR], [🔥 DISPARAR], [✚ BOTIQUÍN], [👊 GOLPEAR], [🚀 LANZAR].</li>
+              </ul>
+            </div>
+          </article>
+        </div>
+
+        <footer class="instructions-footer">
+          <button id="btn-goto-menu" class="cyber-btn primary-btn large-btn">
+            IR A PANTALLA DE INICIO <span class="btn-arrow">→</span>
+          </button>
+        </footer>
+      </div>
+    </section>
+
+    <!-- PANTALLA 2: PANTALLA DE INICIO (Menú Principal Limpio) -->
+    <section id="screen-main-menu" class="screen">
+      <div class="menu-card glass-panel">
+        <div class="menu-header-bar">
+          <div class="cyber-badge pulse-cyan">SISTEMA CINEGÉTICO CRONAL</div>
+          <div class="coin-badge-display" title="Monedas ganadas en combate">
+            <span class="coin-icon">🪙</span>
+            <span class="coin-count-text" id="menu-coin-count">0</span>
+          </div>
+        </div>
+
+        <div class="logo-wrapper">
+          <h1 class="chrono-title">
+            <span class="cyan-part">CHRONO</span> <span class="red-part">BULLET</span>
+          </h1>
+        </div>
+
+        <!-- SELECTOR DE PALETA DE COLOR GLOBAL (5 OPCIONES) -->
+        <div class="theme-picker-panel">
+          <div class="theme-picker-label">🎨 ELIGE EL COLOR DEL JUEGO:</div>
+          <div class="theme-palette-buttons">
+            <button class="palette-btn active" data-color="cyan" title="Cyber Cian">
+              <span class="palette-dot dot-cyan"></span>
+              <span class="palette-txt">CIAN</span>
+            </button>
+            <button class="palette-btn" data-color="crimson" title="Carmesí Neón">
+              <span class="palette-dot dot-crimson"></span>
+              <span class="palette-txt">ROJO</span>
+            </button>
+            <button class="palette-btn" data-color="white" title="Blanco Clínico (Superhot)">
+              <span class="palette-dot dot-white"></span>
+              <span class="palette-txt">BLANCO</span>
+            </button>
+            <button class="palette-btn" data-color="purple" title="Púrpura Synth">
+              <span class="palette-dot dot-purple"></span>
+              <span class="palette-txt">PÚRPURA</span>
+            </button>
+            <button class="palette-btn" data-color="amber" title="Ámbar Hazard">
+              <span class="palette-dot dot-amber"></span>
+              <span class="palette-txt">ÁMBAR</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="menu-actions">
+          <button id="btn-start-game" class="cyber-btn primary-btn pulse-glow">
+            <span class="btn-icon">▶</span> INICIAR JUEGO
+          </button>
+          <button id="btn-open-shop" class="cyber-btn gold-btn glow-gold">
+            <span class="btn-icon">🛒</span> TIENDA & ARSENAL
+          </button>
+          <button id="btn-fullscreen-menu" class="cyber-btn secondary-btn">
+            <span class="btn-icon">⛶</span> PANTALLA COMPLETA
+          </button>
+          <button id="btn-view-instructions" class="cyber-btn secondary-btn">
+            <span class="btn-icon">📖</span> INSTRUCCIONES
+          </button>
+        </div>
+
+        <div class="menu-decorations">
+          <span class="decor-corner top-left"></span>
+          <span class="decor-corner top-right"></span>
+          <span class="decor-corner bottom-left"></span>
+          <span class="decor-corner bottom-right"></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- PANTALLA 3: SELECCIÓN DE MAPAS (ESTILO RIVALS: PURO VISUAL) -->
+    <section id="screen-map-select" class="screen">
+      <div class="map-select-container glass-panel">
+        
+        <!-- BARRA SUPERIOR DE MAPAS: INICIO, MONEDAS Y TIENDA -->
+        <div class="map-top-bar">
+          <button id="btn-back-to-menu" class="cyber-btn home-corner-btn" title="Volver al Menú Principal">
+            <span class="red-house-icon">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="#ff2052" style="filter: drop-shadow(0 0 5px rgba(255, 32, 82, 0.8)); vertical-align: middle;">
+                <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
+              </svg>
+            </span>
+            <span class="home-corner-txt">← INICIO</span>
+          </button>
+
+          <div class="map-top-right-group">
+            <div class="coin-badge-display" title="Monedas ganadas en combate">
+              <span class="coin-icon">🪙</span>
+              <span class="coin-count-text" id="map-coin-count">0</span>
+            </div>
+            <button id="btn-shop-from-maps" class="cyber-btn gold-btn-small" title="Ir a la Tienda">
+              <span class="btn-icon">🛒</span> TIENDA
+            </button>
+          </div>
+        </div>
+
+        <!-- TÍTULO CENTRADO Y ORGANIZADO (SIN SUPERPOSICIONES) -->
+        <header class="map-header-clean">
+          <h1 class="glow-title">SELECCIONA UN MAPA</h1>
+          <p class="subtitle">Despliegue táctico inmediato. Pulsa directamente en un mapa.</p>
+        </header>
+
+        <!-- GRID DE MAPAS ESTILO RIVALS: SOLO IMAGEN VISUAL CINEMÁTICA -->
+        <div class="rivals-maps-grid">
+          <!-- Mapa 01 -->
+          <div class="rivals-card card-theme-lab" data-map="0" title="Desplegarse en El Pasillo">
+            <div class="rivals-preview preview-map-1">
+              <div class="preview-mini-canvas">
+                <div class="mock-wall w1"></div>
+                <div class="mock-wall w2"></div>
+                <div class="mock-player"></div>
+                <div class="mock-enemy e1"></div>
+                <div class="mock-enemy e2"></div>
+              </div>
+              <div class="rivals-overlay">
+                <div class="rivals-header-row">
+                  <span class="map-code">01 // FÁCIL</span>
+                  <span class="theme-mini-badge tag-lab">LABORATORIO</span>
+                </div>
+                <h2 class="rivals-title">EL PASILLO</h2>
+                <button type="button" class="cyber-btn rivals-deploy-btn">▶ DESPLEGAR</button>
+              </div>
+              <div class="rivals-hover-glow"></div>
+            </div>
+          </div>
+
+          <!-- Mapa 02 -->
+          <div class="rivals-card card-theme-neon" data-map="1" title="Desplegarse en Sala de Pilares">
+            <div class="rivals-preview preview-map-2">
+              <div class="preview-mini-canvas">
+                <div class="mock-pillar p1"></div>
+                <div class="mock-pillar p2"></div>
+                <div class="mock-pillar p3"></div>
+                <div class="mock-pillar p4"></div>
+                <div class="mock-player"></div>
+                <div class="mock-enemy e1"></div>
+                <div class="mock-enemy e2"></div>
+                <div class="mock-enemy e3"></div>
+              </div>
+              <div class="rivals-overlay">
+                <div class="rivals-header-row">
+                  <span class="map-code">02 // MEDIO</span>
+                  <span class="theme-mini-badge tag-neon">NEON NOIR</span>
+                </div>
+                <h2 class="rivals-title">SALA DE PILARES</h2>
+                <button type="button" class="cyber-btn rivals-deploy-btn">▶ DESPLEGAR</button>
+              </div>
+              <div class="rivals-hover-glow"></div>
+            </div>
+          </div>
+
+          <!-- Mapa 03 -->
+          <div class="rivals-card card-theme-industrial" data-map="2" title="Desplegarse en Almacén de Escopetas">
+            <div class="rivals-preview preview-map-3">
+              <div class="preview-mini-canvas">
+                <div class="mock-hazard-line"></div>
+                <div class="mock-warehouse-wall wh1"></div>
+                <div class="mock-warehouse-wall wh2"></div>
+                <div class="mock-warehouse-wall wh3"></div>
+                <div class="mock-shotgun-pickup"></div>
+                <div class="mock-player"></div>
+                <div class="mock-enemy boss-shotgun"></div>
+                <div class="mock-enemy e2"></div>
+                <div class="mock-enemy e3"></div>
+              </div>
+              <div class="rivals-overlay">
+                <div class="rivals-header-row">
+                  <span class="map-code">03 // DIFÍCIL</span>
+                  <span class="theme-mini-badge tag-industrial">INDUSTRIAL</span>
+                </div>
+                <h2 class="rivals-title">ALMACÉN DE ESCOPETAS</h2>
+                <button type="button" class="cyber-btn rivals-deploy-btn">▶ DESPLEGAR</button>
+              </div>
+              <div class="rivals-hover-glow"></div>
+            </div>
+          </div>
+
+          <!-- Mapa 04 -->
+          <div class="rivals-card card-theme-crossroads" data-map="3" title="Desplegarse en Cruce Cyberpunk">
+            <div class="rivals-preview preview-map-4">
+              <div class="preview-mini-canvas">
+                <div class="mock-crossroad-cr1"></div>
+                <div class="mock-crossroad-cr2"></div>
+                <div class="mock-crossroad-cr3"></div>
+                <div class="mock-crossroad-cr4"></div>
+                <div class="mock-chest-pip c1"></div>
+                <div class="mock-chest-pip c2"></div>
+                <div class="mock-player"></div>
+                <div class="mock-enemy e1"></div>
+                <div class="mock-enemy e2"></div>
+                <div class="mock-enemy e3"></div>
+                <div class="mock-enemy e4"></div>
+              </div>
+              <div class="rivals-overlay">
+                <div class="rivals-header-row">
+                  <span class="map-code">04 // EXPERTO</span>
+                  <span class="theme-mini-badge tag-neon">CYBERPUNK</span>
+                </div>
+                <h2 class="rivals-title">CRUCE CYBERPUNK</h2>
+                <button type="button" class="cyber-btn rivals-deploy-btn">▶ DESPLEGAR</button>
+              </div>
+              <div class="rivals-hover-glow"></div>
+            </div>
+          </div>
+
+          <!-- Mapa 05 -->
+          <div class="rivals-card card-theme-reactor" data-map="4" title="Desplegarse en El Búnker del Núcleo">
+            <div class="rivals-preview preview-map-5">
+              <div class="preview-mini-canvas">
+                <div class="mock-reactor-core"></div>
+                <div class="mock-reactor-ring"></div>
+                <div class="mock-reactor-wall rw1"></div>
+                <div class="mock-reactor-wall rw2"></div>
+                <div class="mock-chest-pip c1"></div>
+                <div class="mock-chest-pip c2"></div>
+                <div class="mock-player"></div>
+                <div class="mock-enemy boss-sniper"></div>
+                <div class="mock-enemy e2"></div>
+                <div class="mock-enemy e3"></div>
+                <div class="mock-enemy e4"></div>
+                <div class="mock-enemy e5"></div>
+              </div>
+              <div class="rivals-overlay">
+                <div class="rivals-header-row">
+                  <span class="map-code">05 // EXTREMO</span>
+                  <span class="theme-mini-badge tag-industrial">NÚCLEO REACTOR</span>
+                </div>
+                <h2 class="rivals-title">EL BÚNKER DEL NÚCLEO</h2>
+                <button type="button" class="cyber-btn rivals-deploy-btn">▶ DESPLEGAR</button>
+              </div>
+              <div class="rivals-hover-glow"></div>
+            </div>
+          </div>
+          <!-- Mapa 06 -->
+          <div class="rivals-card card-theme-lab" data-map="5" title="Desplegarse en La Catedral de Hielo">
+            <div class="rivals-preview preview-map-6">
+              <div class="preview-mini-canvas">
+                <div class="mock-wall w1" style="left:20%;top:25%;width:5%;height:50%;"></div>
+                <div class="mock-wall w2" style="left:75%;top:25%;width:5%;height:50%;"></div>
+                <div class="mock-wall wh1" style="left:30%;top:50%;width:40%;height:8%;"></div>
+                <div class="mock-player"></div>
+                <div class="mock-enemy e1"></div>
+                <div class="mock-enemy e2"></div>
+                <div class="mock-enemy e3"></div>
+              </div>
+              <div class="rivals-overlay">
+                <div class="rivals-header-row">
+                  <span class="map-code">06 // MEDIO</span>
+                  <span class="theme-mini-badge tag-lab">CRIOGÉNICO</span>
+                </div>
+                <h2 class="rivals-title">CATEDRAL DE HIELO</h2>
+                <button type="button" class="cyber-btn rivals-deploy-btn">▶ DESPLEGAR</button>
+              </div>
+              <div class="rivals-hover-glow"></div>
+            </div>
+          </div>
+
+          <!-- Mapa 07 -->
+          <div class="rivals-card card-theme-neon" data-map="6" title="Desplegarse en Laberinto de Espejos">
+            <div class="rivals-preview preview-map-7">
+              <div class="preview-mini-canvas">
+                <div class="mock-warehouse-wall wh1" style="left:15%;top:20%;width:5%;height:40%;"></div>
+                <div class="mock-warehouse-wall wh2" style="left:20%;top:60%;width:45%;height:5%;"></div>
+                <div class="mock-warehouse-wall wh3" style="left:55%;top:30%;width:5%;height:40%;"></div>
+                <div class="mock-player"></div>
+                <div class="mock-enemy e1"></div>
+                <div class="mock-enemy e2"></div>
+                <div class="mock-enemy boss-shotgun"></div>
+              </div>
+              <div class="rivals-overlay">
+                <div class="rivals-header-row">
+                  <span class="map-code">07 // DIFÍCIL</span>
+                  <span class="theme-mini-badge tag-neon">NEON NOIR</span>
+                </div>
+                <h2 class="rivals-title">LABERINTO DE ESPEJOS</h2>
+                <button type="button" class="cyber-btn rivals-deploy-btn">▶ DESPLEGAR</button>
+              </div>
+              <div class="rivals-hover-glow"></div>
+            </div>
+          </div>
+
+          <!-- Mapa 08 -->
+          <div class="rivals-card card-theme-industrial" data-map="7" title="Desplegarse en Fortaleza en Ruinas">
+            <div class="rivals-preview preview-map-8">
+              <div class="preview-mini-canvas">
+                <div class="mock-hazard-line"></div>
+                <div class="mock-crossroad-cr1" style="left:10%;top:30%;width:18%;height:25%;"></div>
+                <div class="mock-crossroad-cr2" style="left:50%;top:50%;width:22%;height:8%;"></div>
+                <div class="mock-crossroad-cr3" style="left:60%;top:20%;width:8%;height:30%;"></div>
+                <div class="mock-player"></div>
+                <div class="mock-enemy e1"></div>
+                <div class="mock-enemy e2"></div>
+                <div class="mock-enemy boss-sniper"></div>
+                <div class="mock-enemy e4"></div>
+              </div>
+              <div class="rivals-overlay">
+                <div class="rivals-header-row">
+                  <span class="map-code">08 // EXPERTO</span>
+                  <span class="theme-mini-badge tag-industrial">GUERRA URBANA</span>
+                </div>
+                <h2 class="rivals-title">FORTALEZA EN RUINAS</h2>
+                <button type="button" class="cyber-btn rivals-deploy-btn">▶ DESPLEGAR</button>
+              </div>
+              <div class="rivals-hover-glow"></div>
+            </div>
+          </div>
+
+          <!-- Mapa 09 -->
+          <div class="rivals-card card-theme-reactor" data-map="8" title="Desplegarse en Cámara Circular">
+            <div class="rivals-preview preview-map-9">
+              <div class="preview-mini-canvas">
+                <div class="mock-reactor-core" style="width:24%;height:24%;left:38%;top:38%;border-radius:50%;"></div>
+                <div class="mock-reactor-ring" style="width:50%;height:50%;left:25%;top:25%;border-radius:50%;"></div>
+                <div class="mock-chest-pip c1"></div>
+                <div class="mock-chest-pip c2"></div>
+                <div class="mock-player"></div>
+                <div class="mock-enemy e1"></div>
+                <div class="mock-enemy e2"></div>
+                <div class="mock-enemy boss-sniper"></div>
+                <div class="mock-enemy e4"></div>
+                <div class="mock-enemy e5"></div>
+              </div>
+              <div class="rivals-overlay">
+                <div class="rivals-header-row">
+                  <span class="map-code">09 // EXTREMO</span>
+                  <span class="theme-mini-badge tag-industrial">ARENA DE PLASMA</span>
+                </div>
+                <h2 class="rivals-title">CÁMARA CIRCULAR</h2>
+                <button type="button" class="cyber-btn rivals-deploy-btn">▶ DESPLEGAR</button>
+              </div>
+              <div class="rivals-hover-glow"></div>
+            </div>
+          </div>
+
+          <!-- Mapa 10 -->
+          <div class="rivals-card card-theme-crossroads" data-map="9" title="Desplegarse en El Abismo Final">
+            <div class="rivals-preview preview-map-10">
+              <div class="preview-mini-canvas">
+                <div class="mock-crossroad-cr1"></div>
+                <div class="mock-crossroad-cr2"></div>
+                <div class="mock-crossroad-cr3"></div>
+                <div class="mock-crossroad-cr4"></div>
+                <div class="mock-chest-pip c1"></div>
+                <div class="mock-chest-pip c2"></div>
+                <div class="mock-player"></div>
+                <div class="mock-enemy e1"></div>
+                <div class="mock-enemy e2"></div>
+                <div class="mock-enemy e3"></div>
+                <div class="mock-enemy boss-sniper"></div>
+                <div class="mock-enemy e5"></div>
+              </div>
+              <div class="rivals-overlay">
+                <div class="rivals-header-row">
+                  <span class="map-code">10 // LEGENDARIO</span>
+                  <span class="theme-mini-badge tag-neon">ABISMO FINAL</span>
+                </div>
+                <h2 class="rivals-title">EL ABISMO FINAL</h2>
+                <button type="button" class="cyber-btn rivals-deploy-btn">▶ DESPLEGAR</button>
+              </div>
+              <div class="rivals-hover-glow"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PANTALLA 4: PANTALLA EN JUEGO (CANVAS JUGABLE 3D FPS) -->
+    <section id="screen-game" class="screen">
+      <!-- HUD FLOTANTE SUPERIOR -->
+      <header id="game-hud">
+        <div class="hud-left">
+          <div id="hud-lives-chip" class="hud-chip lives-chip" title="Vidas del Jugador">
+            <span class="chip-icon">❤️</span>
+            <span id="hud-lives-text">3/3 VIDAS</span>
+          </div>
+          <div id="hud-medkit-chip" class="hud-chip medkit-chip" title="Botiquines en Mochila (Tecla Q en PC o botón ✚ en Celular)">
+            <span class="chip-icon">🎒</span>
+            <span id="hud-medkit-text">MOCHILA: ✚ × 2 [Q]</span>
+          </div>
+          <div id="hud-ammo-chip" class="hud-chip cyan-chip">
+            <span class="chip-icon">🔫</span>
+            <span id="hud-ammo-text">PISTOLA: 6 BALAS</span>
+          </div>
+          <div id="hud-aim-chip" class="hud-chip cyan-chip" title="Tiempo de Apuntado Cronal Restante">
+            <span class="chip-icon">🎯</span>
+            <span id="hud-aim-text">MIRA: 2.0s</span>
+          </div>
+          <div id="hud-time-chip" class="hud-chip time-stopped">
+            <span id="hud-time-icon">⏱️</span>
+            <span id="hud-time-text">TIEMPO: DETENIDO (4%)</span>
+          </div>
+        </div>
+
+        <div class="hud-center">
+          <div id="hud-map-chip" class="hud-chip title-chip">
+            <span id="hud-map-name">MAPA 01: EL PASILLO</span>
+          </div>
+          <div id="hud-skin-chip" class="hud-chip skin-chip skin-chip-skin_default" title="Skin de Arma Activa">
+            <span id="hud-skin-icon">👑</span>
+            <span id="hud-skin-text">SKIN ACTIVA</span>
+          </div>
+        </div>
+
+        <div class="hud-right">
+          <button id="btn-fullscreen-hud" class="cyber-btn fullscreen-chip" title="Pantalla Completa">
+            ⛶
+          </button>
+          <button id="btn-quick-restart" class="cyber-btn restart-chip" title="Reinicio rápido (R)">
+            🔄 R
+          </button>
+          <button id="btn-exit-to-menu" class="cyber-btn danger-chip">
+            ✕ SALIR
+          </button>
+        </div>
+      </header>
+
+      <!-- ÁREA DEL CANVAS 3D (THREE.JS WEBGL) -->
+      <main id="canvas-wrapper">
+        <canvas id="gameCanvas" width="1000" height="650"></canvas>
+        <canvas id="crosshairCanvas" width="1000" height="650"></canvas>
+
+        <!-- RETÍCULA TÁCTICA 3D CENTRAL -->
+        <div id="fps-crosshair">
+          <div class="crosshair-dot"></div>
+          <div class="crosshair-tick top"></div>
+          <div class="crosshair-tick bottom"></div>
+          <div class="crosshair-tick left"></div>
+          <div class="crosshair-tick right"></div>
+        </div>
+
+        <!-- OVERLAY DE MIRA TELESCÓPICA DE FRANCOTIRADOR HIGHTECH -->
+        <div id="sniper-scope-overlay" class="hidden">
+          <div class="scope-vignette"></div>
+          <div class="scope-crosshair-h"></div>
+          <div class="scope-crosshair-v"></div>
+          <div class="scope-ring-outer"></div>
+          <div class="scope-ring-inner"></div>
+          <div class="scope-hud-header">RAILGUN SCOPE 8x | CRONO LOCK</div>
+          <div class="scope-hud-footer">DISTANCIA: OPTIMIZADA | MIRA DE PRECISIÓN</div>
+        </div>
+
+        <!-- OVERLAY DE BLOQUEO DE RATÓN EN PC -->
+        <div id="pointer-lock-prompt" class="desktop-only">
+          <div class="lock-prompt-box">
+            <span class="lock-icon">🖱️</span>
+            <span class="lock-text">HAZ CLIC PARA CONTROLAR LA CÁMARA 3D</span>
+            <span class="lock-sub">(Presiona ESC en cualquier momento para liberar el ratón)</span>
+          </div>
+        </div>
+
+        <!-- CAPA DE CONTROLES TÁCTILES MÓVILES -->
+        <div id="mobile-controls-layer">
+          <!-- Zona izquierda: Joystick virtual dinámico -->
+          <div id="joystick-zone">
+            <div id="joystick-base">
+              <div id="joystick-knob"></div>
+            </div>
+          </div>
+
+          <!-- Zona derecha: Botones de combate para celular (Botiquín, Cofre, Golpear, Lanzar y Disparar) -->
+          <div id="mobile-actions-zone">
+            <button id="btn-touch-medkit" class="mobile-action-btn medkit-btn" title="Usar Botiquín (Cura +2 Vidas)">
+              <span class="btn-touch-icon">✚</span>
+              <span class="btn-touch-label">BOTIQUÍN</span>
+              <span id="btn-touch-medkit-count" class="medkit-badge">2</span>
+            </button>
+            <button id="btn-touch-chest" class="mobile-action-btn chest-btn" title="Mantener presionado para abrir cofre">
+              <span class="btn-touch-icon">📦</span>
+              <span class="btn-touch-label">COFRE</span>
+            </button>
+            <button id="btn-touch-punch" class="mobile-action-btn punch-btn" title="Golpear cuerpo a cuerpo">
+              <span class="btn-touch-icon">👊</span>
+              <span class="btn-touch-label">GOLPEAR</span>
+            </button>
+            <button id="btn-touch-throw" class="mobile-action-btn throw-btn" title="Lanzar Arma">
+              <span class="btn-touch-icon">🚀</span>
+              <span class="btn-touch-label">LANZAR</span>
+            </button>
+            <button id="btn-touch-shoot" class="mobile-action-btn shoot-btn" title="Disparar arma equipada">
+              <span class="btn-touch-icon">🎯</span>
+              <span class="btn-touch-label">DISPARAR</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- INDICADOR SUTIL DE CONTROLES IN-GAME (flotante inferior) -->
+        <div id="ingame-hints">
+          <span class="desktop-only">[WASD] Moverse</span>
+          <span class="desktop-only">[Clic Izq] Disparar / Golpear</span>
+          <span class="desktop-only">[Q] Botiquín (Mochila)</span>
+          <span class="desktop-only">[Mantén E] Abrir Cofre</span>
+          <span class="desktop-only">[Espacio / Clic Der] Lanzar Arma</span>
+          <span class="desktop-only">[R] Reiniciar</span>
+          <span class="mobile-only">[Joy Izq] Mover • [Arrastrar Der] Cámara • [🎯] Disparar • [✚] Botiquín • [👊] Golpear • [🚀] Lanzar • [📦] Cofre</span>
+        </div>
+      </main>
+
+      <!-- MODAL DE MUERTE: TIEMPO AGOTADO -->
+      <div id="modal-death" class="game-modal">
+        <div class="modal-content glass-panel death-border">
+          <div class="modal-glitch-tag">LÍNEA TEMPORAL COLAPSADA</div>
+          <h2 class="modal-title red-glow">TIEMPO AGOTADO</h2>
+          <p class="modal-desc">Has recibido un impacto letal. En este plano, el más mínimo error congela tu existencia.</p>
+          <div class="modal-buttons">
+            <button id="btn-retry-death" class="cyber-btn primary-btn red-btn">
+              Reintentar (R)
+            </button>
+            <button id="btn-change-map-death" class="cyber-btn secondary-btn">
+              Cambiar de Mapa
+            </button>
+            <button id="btn-goto-menu-death" class="cyber-btn secondary-btn">
+              🏠 Menú Principal
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODAL DE VICTORIA: ¡MAPA SUPERADO! -->
+      <div id="modal-victory" class="game-modal">
+        <div class="modal-content glass-panel victory-border">
+          <div class="modal-glitch-tag">SECTOR ASEGURADO</div>
+          <h2 class="modal-title cyan-glow">¡MAPA SUPERADO!</h2>
+          <p class="modal-desc">Todos los objetivos han sido neutralizados en esquirlas de cristal. Cronología estabilizada.</p>
+
+          <div class="victory-rewards-box">
+            <div class="reward-title">RECOMPENSA DE CRONOLOGÍA</div>
+            <div class="reward-coins-banner">
+              <span class="reward-coin-icon">🪙</span> +<span id="victory-coins-earned">15</span> MONEDAS GANADAS
+            </div>
+            <div class="reward-total-text">Saldo total: 🪙 <span id="victory-total-coins">0</span></div>
+          </div>
+
+          <div class="modal-buttons">
+            <button id="btn-next-map" class="cyber-btn primary-btn cyan-btn">
+              Siguiente Mapa →
+            </button>
+            <button id="btn-shop-win" class="cyber-btn gold-btn">
+              🛒 Ir a la Tienda
+            </button>
+            <button id="btn-change-map-win" class="cyber-btn secondary-btn">
+              Seleccionar otro Mapa
+            </button>
+            <button id="btn-goto-menu-win" class="cyber-btn secondary-btn">
+              🏠 Menú Principal
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PANTALLA 5: TIENDA CIBERNÉTICA (SUMINISTROS, ARSENAL Y SKINS) -->
+    <section id="screen-shop" class="screen">
+      <div class="shop-container glass-panel">
+        
+        <!-- BARRA SUPERIOR DE TIENDA: VOLVER, SALDO -->
+        <div class="shop-top-bar">
+          <button id="btn-back-from-shop" class="cyber-btn home-corner-btn" title="Volver">
+            <span class="home-corner-txt">← VOLVER</span>
+          </button>
+
+          <div class="shop-title-group">
+            <div class="cyber-badge pulse-gold">MERCADO CLANDESTINO</div>
+            <h1 class="shop-title glow-gold-title">TIENDA CIBERNÉTICA</h1>
+          </div>
+
+          <div class="coin-badge-display big-coin-badge" title="Tus Monedas">
+            <span class="coin-icon">🪙</span>
+            <span class="coin-count-text" id="shop-coin-count">0</span>
+          </div>
+        </div>
+
+        <!-- PESTAÑAS DE CATEGORÍA -->
+        <div class="shop-tabs">
+          <button class="shop-tab-btn active" data-tab="tactical">
+            <span class="tab-icon">🎒</span> SUMINISTROS TÁCTICOS
+          </button>
+          <button class="shop-tab-btn" data-tab="arsenal">
+            <span class="tab-icon">🔫</span> ARSENAL INICIAL
+          </button>
+          <button class="shop-tab-btn" data-tab="skins">
+            <span class="tab-icon">🎨</span> SKINS Y ACABADOS
+          </button>
+        </div>
+
+        <!-- CONTENEDOR DINÁMICO DE PRODUCTOS DE LA TIENDA -->
+        <div id="shop-items-grid" class="shop-items-grid">
+          <!-- Renderizado dinámicamente desde game.js -->
+        </div>
+
+      </div>
+    </section>
+
+    <!-- MODAL DE SELECCIÓN DE DIFICULTAD (fuera de las pantallas para verse sobre la selección de mapas) -->
+    <div id="modal-difficulty" class="game-modal difficulty-overlay">
+      <div class="modal-content glass-panel difficulty-modal-box">
+        <div class="modal-glitch-tag">CONFIGURACIÓN DE DESPLIEGUE</div>
+        <h2 id="diff-modal-map-name" class="modal-title cyan-glow">MAPA 01: EL PASILLO</h2>
+        <p class="modal-desc">Selecciona tu nivel de desafío para esta partida:</p>
+
+        <div id="diff-cards-grid" class="diff-cards-grid">
+          <!-- Rellenado dinámicamente -->
+        </div>
+
+        <div id="diff-video-block" class="diff-video-block hidden">
+          <div class="diff-video-title">🎥 ¿Crees que es imposible pasar el ULTRA DIFÍCIL? Mira este video</div>
+          <video id="diff-video-player" class="diff-video-player" controls playsinline preload="none"></video>
+        </div>
+
+        <div class="modal-buttons" style="margin-top: 14px;">
+          <button id="btn-cancel-difficulty" class="cyber-btn secondary-btn">
+            ✕ Cancelar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL DE ORIENTACIÓN MÓVIL RECOMENDADA (Landscape) -->
+    <div id="orientation-warning">
+      <div class="orient-card glass-panel">
+        <div class="rotate-phone-anim">🔄 📱</div>
+        <h2 class="orient-title">GIRA TU TELÉFONO</h2>
+        <p class="orient-desc">Para la máxima precisión táctica y visión panorámica del mapa, pon el móvil en <strong>posición horizontal</strong>.</p>
+        <div class="orient-buttons">
+          <button id="btn-fullscreen-orient" class="cyber-btn primary-btn cyan-btn">⛶ PANTALLA COMPLETA</button>
+          <button id="btn-dismiss-orient" class="cyber-btn secondary-btn">CONTINUAR ASÍ</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- SCRIPTS MODULARES (MOTOR 3D THREE.JS + AUDIO PROCEDURAL + JUEGO) -->
+  <!-- Usamos Three.js r128 desde CDN para asegurar compatibilidad con Post-Processing -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+  
+  <script src="audio.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
