@@ -3,6 +3,15 @@
 // Guía de estilo Chrono Bullet: Cartoon 3D limpio y estilizado
 // Estructura modular: colores agrupados al inicio y piezas nombradas (mesh.name)
 // Conserva el indicador diegético de 5 segmentos y toda su lógica de animación
+//
+// SILUETA: un solo cañón central con boca en campana, bobinas separadas, cámara
+// de núcleo abierta, celda cilíndrica grande y aletas laterales (todo redondeado).
+// PIEZAS ANIMADAS (nunca se fusionan, game.js las protege por nombre):
+//   - balaIndicador_1 a balaIndicador_5
+//   - nucleoOrb / nucleoHalo
+//   - anilloReloj_aro (aro + 12 marcas en UNA sola malla)
+// El resto de piezas comparte materiales (gris claro, grafito, negro, magenta) y
+// game.js las fusiona por material: 4 draw calls estáticos en total.
 // ========================================================
 
 (function(global) {
@@ -19,435 +28,434 @@
     // ========================================================
     // PALETA DE COLORES Y MATERIALES (Agrupados al inicio para fácil edición)
     // ========================================================
-    // 1. Gris Claro / Platino: Carcasa exterior aerodinámica (zona clara)
-    const COLOR_GRIS_CLARO_HEX = isGold ? 0xfff3b0 : (isVortex ? 0xe9d5ff : (isMatrix ? 0xd1fae5 : (isInferno ? 0xfecaca : 0xcbd5e1)));
-    // 2. Negro Carbón: Chasis interno, culata, empuñadura y cavidades (zona oscura)
-    const COLOR_NEGRO_HEX      = isGold ? 0x221a08 : (isVortex ? 0x180f28 : (isMatrix ? 0x052018 : (isInferno ? 0x240808 : 0x111622)));
-    // 3. Grafito / Plata Medio: Disipadores, biseles y herrajes (zona media)
-    const COLOR_GRAFITO_HEX    = isGold ? 0x6b5314 : (isVortex ? 0x3b1d5c : (isMatrix ? 0x064e3b : (isInferno ? 0x5a1a1a : 0x475569)));
-    // 4. Dorado Puro: Anillo de reloj giratorio, marcas, biseles y detalles
-    const COLOR_ORO_HEX        = isGold ? 0xffd54f : (isVortex ? 0xc084fc : (isMatrix ? 0x34d399 : (isInferno ? 0xf87171 : 0xe8c14a)));
-    // 5. Magenta Brillante: Plasma, núcleo y balas indicadoras de munición
+    // 1. Gris Claro: blindaje superior, collar frontal, bobinas y bordes (zona clara)
+    const COLOR_GRIS_CLARO_HEX = isGold ? 0xfff3b0 : (isVortex ? 0xe9d5ff : (isMatrix ? 0xd1fae5 : (isInferno ? 0xfecaca : 0xb9c2d3)));
+    // 2. Negro Azulado: carcasa trasera, marco del contador, interior de la boca (zona oscura)
+    const COLOR_NEGRO_HEX      = isGold ? 0x221a08 : (isVortex ? 0x180f28 : (isMatrix ? 0x052018 : (isInferno ? 0x240808 : 0x0c0e24)));
+    // 3. Grafito: cañón, soportes, aletas y herrajes (zona media)
+    const COLOR_GRAFITO_HEX    = isGold ? 0x6b5314 : (isVortex ? 0x3b1d5c : (isMatrix ? 0x064e3b : (isInferno ? 0x5a1a1a : 0x4b566b)));
+    // 4. Magenta Brillante: plasma, núcleo, celda, anillo de reloj y balas indicadoras
     const COLOR_MAGENTA_HEX    = isGold ? 0xffea00 : (isVortex ? 0xd946ef : (isMatrix ? 0x10b981 : (isInferno ? 0xff3b30 : 0xff0a85)));
+    // 5. Derivados del magenta (no son colores nuevos, salen del magenta de la skin)
+    const COLOR_NUCLEO_HEX       = new THREE.Color(COLOR_MAGENTA_HEX).lerp(new THREE.Color(0xffffff), 0.55).getHex(); // magenta incandescente
+    const COLOR_BALA_ALERTA_HEX  = new THREE.Color(COLOR_MAGENTA_HEX).multiplyScalar(0.30).getHex();                  // parpadeo de última bala
+    // 6. Indicador de munición: vacío = gris oscuro siempre visible sobre el marco negro
+    const COLOR_BALA_VACIA_HEX = 0x3a4256;
+    const COLOR_BALA_FLASH_HEX = 0xffffff;
 
     const matGrisClaro  = applyFortniteShader(createStylizedPBR(COLOR_GRIS_CLARO_HEX, 0x000000, 0, 0.35, 0.20), { edge: 0.85, grad: 0.22, rim: 0.26 });
     const matNegro      = applyFortniteShader(createStylizedPBR(COLOR_NEGRO_HEX, 0x000000, 0, 0.65, 0.12), { edge: 0.50, grad: 0.15, rim: 0.12 });
     const matGrafito    = applyFortniteShader(createStylizedPBR(COLOR_GRAFITO_HEX, 0x000000, 0, 0.45, 0.25), { edge: 0.70, grad: 0.18, rim: 0.18 });
-    const matOro        = applyFortniteShader(createStylizedPBR(COLOR_ORO_HEX, 0x92400e, 0.20, 0.28, 0.88), { edge: 0.85, grad: 0.14, rim: 0.26 });
     const matPlasmaGlow = new THREE.MeshBasicMaterial({ color: COLOR_MAGENTA_HEX });
-    const matPlasmaCore = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const matNucleo     = new THREE.MeshBasicMaterial({ color: COLOR_NUCLEO_HEX });
+    const matHalo       = new THREE.MeshBasicMaterial({ color: COLOR_MAGENTA_HEX, transparent: true, opacity: 0.70, depthWrite: false });
 
-    const extrudeBevelPlasma = { depth: 0.13, bevelEnabled: true, bevelSegments: 3, steps: 1, bevelSize: 0.012, bevelThickness: 0.012 };
+    // Altura del eje del cañón (misma que antes para que las manos sigan encajando)
+    const AX = 0.035;
 
     // ========================================================
-    // 1. PIEZA: CUERPO (Chasis aerodinámico con cámara abierta, culata y relieves)
+    // HELPERS DE GEOMETRÍA (todas las piezas nacen con nombre y se agregan a su padre)
+    // ========================================================
+    function pieza(padre, geo, mat, nombre, x, y, z, rx, ry, rz) {
+      const m = new THREE.Mesh(geo, mat);
+      m.name = nombre;
+      m.position.set(x || 0, y || 0, z || 0);
+      if (rx || ry || rz) m.rotation.set(rx || 0, ry || 0, rz || 0);
+      padre.add(m);
+      return m;
+    }
+
+    // Cilindro con el eje a lo largo del cañón (Z)
+    function cilindroZ(r1, r2, largo, seg) {
+      const g = new THREE.CylinderGeometry(r1, r2, largo, seg || 12);
+      g.rotateX(Math.PI / 2);
+      return g;
+    }
+
+    // Revolución alrededor del eje Z. perfil = [[radio, z], ...] de adelante (z menor) hacia atrás.
+    // En orden creciente de z las caras miran hacia afuera; en orden decreciente miran hacia adentro.
+    function revolucionZ(perfil, seg) {
+      const pts = perfil.map(function(p) { return new THREE.Vector2(p[0], p[1]); });
+      const g = new THREE.LatheGeometry(pts, seg || 20);
+      g.rotateX(Math.PI / 2);
+      return g;
+    }
+
+    // Placa de esquinas redondeadas con bisel, tumbada sobre el plano XZ (grosor en Y, largo en Z)
+    function placaRedondeada(ancho, largo, radio, grosor, bisel) {
+      const w = ancho / 2, l = largo / 2, r = radio;
+      const s = new THREE.Shape();
+      s.moveTo(-w + r, -l);
+      s.lineTo(w - r, -l);
+      s.quadraticCurveTo(w, -l, w, -l + r);
+      s.lineTo(w, l - r);
+      s.quadraticCurveTo(w, l, w - r, l);
+      s.lineTo(-w + r, l);
+      s.quadraticCurveTo(-w, l, -w, l - r);
+      s.lineTo(-w, -l + r);
+      s.quadraticCurveTo(-w, -l, -w + r, -l);
+      const g = new THREE.ExtrudeGeometry(s, { depth: grosor, bevelEnabled: true, bevelSegments: 1, steps: 1, bevelSize: bisel, bevelThickness: bisel, curveSegments: 4 });
+      g.translate(0, 0, -grosor / 2);
+      g.rotateX(-Math.PI / 2);
+      return g;
+    }
+
+    // Une varias geometrías ya transformadas en una sola (solo para el anillo de reloj)
+    function fusionarGeometrias(lista) {
+      let nPos = 0, nIdx = 0;
+      lista.forEach(function(g) {
+        nPos += g.attributes.position.count;
+        nIdx += g.index ? g.index.count : g.attributes.position.count;
+      });
+      const pos = new Float32Array(nPos * 3);
+      const nor = new Float32Array(nPos * 3);
+      const uvs = new Float32Array(nPos * 2);
+      const idx = new Uint16Array(nIdx);
+      let vOff = 0, iOff = 0;
+      lista.forEach(function(g) {
+        const cnt = g.attributes.position.count;
+        pos.set(g.attributes.position.array, vOff * 3);
+        nor.set(g.attributes.normal.array, vOff * 3);
+        if (g.attributes.uv) uvs.set(g.attributes.uv.array, vOff * 2);
+        if (g.index) {
+          for (let i = 0; i < g.index.count; i++) idx[iOff++] = g.index.array[i] + vOff;
+        } else {
+          for (let i = 0; i < cnt; i++) idx[iOff++] = i + vOff;
+        }
+        vOff += cnt;
+      });
+      const out = new THREE.BufferGeometry();
+      out.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      out.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+      out.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+      out.setIndex(new THREE.BufferAttribute(idx, 1));
+      return out;
+    }
+
+    // Esfera de reloj (símbolo grande y legible). Se construye mirando a +Z y luego se orienta.
+    // Piezas estáticas: comparten material y game.js las fusiona.
+    function crearDial(padre, nombre, radio, x, y, z, rotY) {
+      const dial = new THREE.Group();
+      dial.name = nombre;
+      dial.position.set(x, y, z);
+      dial.rotation.y = rotY;
+
+      pieza(dial, new THREE.CircleGeometry(radio, 20), matNegro, nombre + '_cara', 0, 0, 0);
+      pieza(dial, new THREE.TorusGeometry(radio * 0.96, 0.0028, 6, 26), matPlasmaGlow, nombre + '_aro', 0, 0, 0.0015);
+
+      for (let h = 0; h < 12; h++) {
+        const a = h * Math.PI / 6;
+        const cardinal = (h % 3 === 0);
+        const largo = radio * (cardinal ? 0.26 : 0.15);
+        const rad = radio * (cardinal ? 0.72 : 0.77);
+        pieza(dial, new THREE.BoxGeometry(0.0036, largo, 0.004), matPlasmaGlow, nombre + '_marca',
+          Math.sin(a) * rad, Math.cos(a) * rad, 0.001, 0, 0, -a);
+      }
+
+      // Manecillas en las 10:10 (agujas en gris claro para contrastar con la esfera negra)
+      const aH = -Math.PI / 3, lH = radio * 0.48;
+      pieza(dial, new THREE.BoxGeometry(0.0055, lH, 0.0035), matGrisClaro, nombre + '_horario',
+        Math.sin(aH) * lH / 2, Math.cos(aH) * lH / 2, 0.0035, 0, 0, -aH);
+      const aM = Math.PI / 3, lM = radio * 0.70;
+      pieza(dial, new THREE.BoxGeometry(0.0045, lM, 0.0035), matGrisClaro, nombre + '_minutero',
+        Math.sin(aM) * lM / 2, Math.cos(aM) * lM / 2, 0.0045, 0, 0, -aM);
+      pieza(dial, new THREE.CylinderGeometry(0.0058, 0.0058, 0.006, 10), matPlasmaGlow, nombre + '_centro', 0, 0, 0.0045, Math.PI / 2, 0, 0);
+
+      padre.add(dial);
+      return dial;
+    }
+
+    // ========================================================
+    // 1. PIEZA: CUERPO (cámara del núcleo, carcasa trasera oscura, blindaje claro, culata, empuñadura)
     // ========================================================
     const cuerpo = new THREE.Group();
     cuerpo.name = 'cuerpo';
 
-    // Chasis exterior en Gris Claro con curvas suaves y cámara central calada
-    const cuerpoShape = new THREE.Shape();
-    cuerpoShape.moveTo(-0.20, 0.095);
-    cuerpoShape.quadraticCurveTo(0.00, 0.110, 0.14, 0.085);
-    cuerpoShape.quadraticCurveTo(0.24, 0.060, 0.25, -0.010);
-    cuerpoShape.quadraticCurveTo(0.24, -0.090, 0.16, -0.110);
-    cuerpoShape.quadraticCurveTo(0.08, -0.100, 0.03, -0.035);
-    cuerpoShape.lineTo(-0.10, -0.035);
-    cuerpoShape.quadraticCurveTo(-0.16, -0.040, -0.20, 0.010);
-    cuerpoShape.lineTo(-0.20, 0.095);
+    // Collar frontal en Gris Claro: transición redondeada del tubo a la cámara
+    pieza(cuerpo, revolucionZ([
+      [0.030, -0.155], [0.046, -0.150], [0.064, -0.138], [0.077, -0.122],
+      [0.0835, -0.108], [0.084, -0.100], [0.0835, -0.094], [0.0, -0.094]
+    ], 24), matGrisClaro, 'cuerpo_collar', 0, AX, 0);
+    pieza(cuerpo, new THREE.TorusGeometry(0.0842, 0.0040, 6, 28), matNegro, 'cuerpo_collarRanura', 0, AX, -0.101);
 
-    // Cámara de energía central abierta
-    const chamberOpening = new THREE.Path();
-    chamberOpening.moveTo(-0.14, 0.075);
-    chamberOpening.quadraticCurveTo(-0.04, 0.085, 0.04, 0.070);
-    chamberOpening.quadraticCurveTo(0.05, 0.010, 0.03, -0.015);
-    chamberOpening.quadraticCurveTo(-0.05, -0.020, -0.14, -0.010);
-    chamberOpening.quadraticCurveTo(-0.15, 0.030, -0.14, 0.075);
-    cuerpoShape.holes.push(chamberOpening);
-
-    const cuerpoGeo = new THREE.ExtrudeGeometry(cuerpoShape, extrudeBevelPlasma);
-    cuerpoGeo.translate(0, 0, -0.065);
-    const cuerpoMesh = new THREE.Mesh(cuerpoGeo, matGrisClaro);
-    cuerpoMesh.name = 'cuerpoMesh';
-    cuerpoMesh.rotation.y = -Math.PI / 2;
-    cuerpoMesh.position.set(0, 0, 0.02);
-    cuerpo.add(cuerpoMesh);
-
-    // Estructura interna de contención
-    const chamberCradle = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.025, 0.22), matGrafito);
-    chamberCradle.name = 'chamberCradle';
-    chamberCradle.position.set(0, -0.012, -0.06);
-    cuerpo.add(chamberCradle);
-
-    for (let s of [-1, 1]) {
-      const topStrut = new THREE.Mesh(new THREE.CylinderGeometry(0.007, 0.007, 0.22, 8), matOro);
-      topStrut.rotation.x = Math.PI / 2;
-      topStrut.position.set(s * 0.055, 0.085, -0.06);
-      cuerpo.add(topStrut);
+    // Carcasa trasera en Negro Azulado (la zona oscura bien marcada del arma)
+    pieza(cuerpo, revolucionZ([
+      [0.0, 0.030], [0.062, 0.030], [0.073, 0.036], [0.078, 0.048],
+      [0.078, 0.205], [0.073, 0.218], [0.064, 0.224], [0.0, 0.224]
+    ], 24), matNegro, 'cuerpo_carcasa', 0, AX, 0);
+    for (let zb of [0.044, 0.210]) {
+      pieza(cuerpo, new THREE.TorusGeometry(0.0785, 0.0045, 5, 22), matGrafito, 'cuerpo_banda', 0, AX, zb);
     }
 
-    const frontReceiver = new THREE.Mesh(new THREE.CylinderGeometry(0.056, 0.056, 0.08, 16), matNegro);
-    frontReceiver.rotation.x = Math.PI / 2;
-    frontReceiver.position.set(0, 0.035, -0.18);
-    const frontReceiverTrim = new THREE.Mesh(new THREE.TorusGeometry(0.057, 0.004, 8, 20), matOro);
-    frontReceiverTrim.position.set(0, 0.035, -0.18);
-    cuerpo.add(frontReceiver, frontReceiverTrim);
-
-    // Bloque trasero biselado en Negro Carbón
-    const rearReceiver = new THREE.Mesh(new THREE.BoxGeometry(0.098, 0.095, 0.11), matNegro);
-    rearReceiver.name = 'rearReceiver';
-    rearReceiver.position.set(0, 0.035, 0.17);
-    cuerpo.add(rearReceiver);
-
-    const rearEndPlate = new THREE.Mesh(new THREE.BoxGeometry(0.092, 0.088, 0.016), matGrafito);
-    rearEndPlate.position.set(0, 0.035, 0.225);
-    const rearBezelGold = new THREE.Mesh(new THREE.BoxGeometry(0.096, 0.006, 0.018), matOro);
-    rearBezelGold.position.set(0, 0.080, 0.225);
-    cuerpo.add(rearEndPlate, rearBezelGold);
-
-    // Indicador cronográfico posterior
-    const rearClockRim = new THREE.Mesh(new THREE.TorusGeometry(0.026, 0.003, 8, 20), matOro);
-    rearClockRim.position.set(0, 0.040, 0.235);
-    const rearClockFace = new THREE.Mesh(new THREE.CircleGeometry(0.024, 16), matNegro);
-    rearClockFace.position.set(0, 0.040, 0.2355);
-    const rearClockCore = new THREE.Mesh(new THREE.CircleGeometry(0.008, 12), matPlasmaGlow);
-    rearClockCore.position.set(0, 0.040, 0.236);
-    const rearClockHand = new THREE.Mesh(new THREE.BoxGeometry(0.003, 0.014, 0.002), matOro);
-    rearClockHand.position.set(0, 0.046, 0.2365);
-    cuerpo.add(rearClockRim, rearClockFace, rearClockCore, rearClockHand);
-
-    for (let v = 0; v < 3; v++) {
-      const rearVent = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.004, 0.012), matGrafito);
-      rearVent.position.set(0, 0.086, 0.14 + v * 0.025);
-      cuerpo.add(rearVent);
+    // Blindaje superior en Gris Claro (arco de 103°) con bordes de grafito para dar relieve
+    const blindajeGeo = new THREE.CylinderGeometry(0.0815, 0.0815, 0.148, 20, 1, true, Math.PI - 0.9, 1.8);
+    blindajeGeo.rotateX(Math.PI / 2);
+    pieza(cuerpo, blindajeGeo, matGrisClaro, 'cuerpo_blindaje', 0, AX, 0.126);
+    for (let zt of [0.052, 0.200]) {
+      pieza(cuerpo, new THREE.TorusGeometry(0.0815, 0.0042, 5, 12, 1.8), matGrafito, 'cuerpo_blindajeBorde', 0, AX, zt, 0, 0, Math.PI / 2 - 0.9);
+    }
+    for (let sb of [-1, 1]) {
+      pieza(cuerpo, cilindroZ(0.0042, 0.0042, 0.148, 6), matGrafito, 'cuerpo_blindajeLista',
+        sb * 0.0815 * Math.sin(0.9), AX + 0.0815 * Math.cos(0.9), 0.126);
     }
 
+    // Jaula de la cámara del núcleo: 4 soportes en diagonal dejan ventanas abiertas para ver el plasma
+    for (let k = 0; k < 4; k++) {
+      const ang = Math.PI / 4 + k * Math.PI / 2;
+      pieza(cuerpo, cilindroZ(0.008, 0.008, 0.142, 8), matGrafito, 'cuerpo_soporteCamara',
+        Math.cos(ang) * 0.070, AX + Math.sin(ang) * 0.070, -0.026);
+    }
+    // Eje central que sostiene el núcleo + bridas magenta en ambas caras de la cámara
+    pieza(cuerpo, cilindroZ(0.009, 0.009, 0.130, 10), matGrafito, 'camara_eje', 0, AX, -0.032);
+    pieza(cuerpo, new THREE.TorusGeometry(0.018, 0.0040, 6, 18), matPlasmaGlow, 'camara_bridaFrontal', 0, AX, -0.0925);
+    pieza(cuerpo, new THREE.TorusGeometry(0.018, 0.0040, 6, 18), matPlasmaGlow, 'camara_bridaTrasera', 0, AX, 0.0285);
+    // Poste que une la celda con la cámara (soporte bajo el núcleo)
+    pieza(cuerpo, new THREE.CylinderGeometry(0.010, 0.012, 0.050, 8), matGrafito, 'camara_posteCelda', 0, -0.027, -0.034);
+
+    // Símbolo de reloj/engranaje grande en ambos flancos (visible en mano y desde el suelo)
     for (let side of [-1, 1]) {
-      const hombrera = new THREE.Mesh(new THREE.CylinderGeometry(0.020, 0.020, 0.36, 12), matGrafito);
-      hombrera.rotation.x = Math.PI / 2;
-      hombrera.position.set(side * 0.068, 0.090, 0.03);
-      cuerpo.add(hombrera);
-    }
-
-    // Engranaje Chrono en ambos flancos
-    for (let side of [-1, 1]) {
-      const gearHub = new THREE.Mesh(new THREE.CylinderGeometry(0.034, 0.034, 0.008, 16), matOro);
-      gearHub.rotation.z = Math.PI / 2;
-      gearHub.position.set(side * 0.074, 0.045, 0.11);
-
-      for (let g = 0; g < 4; g++) {
-        const tooth = new THREE.Mesh(new THREE.BoxGeometry(0.009, 0.006, 0.080), matOro);
-        tooth.rotation.x = (g * Math.PI) / 4;
-        tooth.position.set(side * 0.074, 0.045, 0.11);
-        cuerpo.add(tooth);
+      const lado = side < 0 ? 'Izq' : 'Der';
+      pieza(cuerpo, new THREE.CylinderGeometry(0.049, 0.049, 0.030, 20), matGrisClaro, 'cuerpo_engranaje' + lado,
+        side * 0.075, AX, 0.150, 0, 0, Math.PI / 2);
+      for (let t = 0; t < 10; t++) {
+        const a = t * Math.PI / 5;
+        pieza(cuerpo, new THREE.CylinderGeometry(0.0065, 0.0065, 0.036, 6), matGrafito, 'cuerpo_diente' + lado,
+          side * 0.075, AX + Math.sin(a) * 0.0505, 0.150 + Math.cos(a) * 0.0505, 0, 0, Math.PI / 2);
       }
-
-      const gearRim = new THREE.Mesh(new THREE.TorusGeometry(0.035, 0.0035, 8, 20), matOro);
-      gearRim.rotation.y = Math.PI / 2;
-      gearRim.position.set(side * 0.074, 0.045, 0.11);
-
-      const dialCenter = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.009, 14), matNegro);
-      dialCenter.rotation.z = Math.PI / 2;
-      dialCenter.position.set(side * 0.0745, 0.045, 0.11);
-
-      const handH = new THREE.Mesh(new THREE.BoxGeometry(0.009, 0.020, 0.003), matOro);
-      handH.rotation.x = 0.6;
-      handH.position.set(side * 0.075, 0.045, 0.11);
-
-      cuerpo.add(gearHub, gearRim, dialCenter, handH);
+      crearDial(cuerpo, 'relojFlanco' + lado, 0.039, side * 0.0915, AX, 0.150, side * Math.PI / 2);
     }
 
-    // Culata trasera
-    const buttPad = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.065, 0.024, 16), matNegro);
-    buttPad.rotation.x = Math.PI / 2;
-    buttPad.position.set(0, -0.015, 0.27);
-    const buttPadTrim = new THREE.Mesh(new THREE.TorusGeometry(0.060, 0.004, 8, 20), matOro);
-    buttPadTrim.position.set(0, -0.015, 0.27);
-    cuerpo.add(buttPad, buttPadTrim);
+    // Culata trasera redondeada con esfera de reloj mirando al jugador
+    pieza(cuerpo, revolucionZ([
+      [0.0, 0.222], [0.060, 0.222], [0.067, 0.229], [0.067, 0.241], [0.061, 0.248], [0.0, 0.248]
+    ], 24), matGrafito, 'cuerpo_culata', 0, AX, 0);
+    pieza(cuerpo, new THREE.TorusGeometry(0.0545, 0.0045, 6, 26), matGrisClaro, 'cuerpo_culataAro', 0, AX, 0.2495);
+    crearDial(cuerpo, 'relojCulata', 0.046, 0, AX, 0.250, 0);
 
-    // Empuñadura ergonómica
+    // Empuñadura ergonómica curva en Negro Azulado (con nervaduras de grafito)
     const gripShape = new THREE.Shape();
-    gripShape.moveTo(0.05, -0.035);
-    gripShape.lineTo(0.13, -0.035);
-    gripShape.lineTo(0.10, -0.22);
-    gripShape.lineTo(0.02, -0.22);
-    gripShape.lineTo(0.05, -0.035);
-    const gripGeo = new THREE.ExtrudeGeometry(gripShape, { depth: 0.058, bevelEnabled: true, bevelSegments: 3, steps: 1, bevelSize: 0.007, bevelThickness: 0.007 });
+    gripShape.moveTo(0.06, -0.02);
+    gripShape.lineTo(0.13, -0.02);
+    gripShape.quadraticCurveTo(0.128, -0.12, 0.108, -0.212);
+    gripShape.quadraticCurveTo(0.080, -0.240, 0.045, -0.220);
+    gripShape.quadraticCurveTo(0.040, -0.12, 0.06, -0.02);
+    const gripGeo = new THREE.ExtrudeGeometry(gripShape, { depth: 0.058, bevelEnabled: true, bevelSegments: 3, steps: 1, bevelSize: 0.007, bevelThickness: 0.007, curveSegments: 6 });
     gripGeo.translate(0, 0, -0.029);
-    const gripMesh = new THREE.Mesh(gripGeo, matNegro);
-    gripMesh.name = 'gripMesh';
-    gripMesh.rotation.y = -Math.PI / 2;
-    gripMesh.position.set(0, 0, 0.02);
-    cuerpo.add(gripMesh);
+    const gripMesh = pieza(cuerpo, gripGeo, matNegro, 'cuerpo_empunadura', 0, 0, 0.02, 0, -Math.PI / 2, 0);
 
     for (let side of [-1, 1]) {
       for (let r = 0; r < 4; r++) {
-        const gripRib = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.007, 0.046), matGrafito);
-        gripRib.rotation.x = -0.22;
-        gripRib.position.set(side * 0.031, -0.065 - r * 0.032, 0.075 + r * 0.008);
-        cuerpo.add(gripRib);
+        const ry = -0.07 - r * 0.03;
+        const rz = 0.115 + (ry + 0.02) * 0.11;
+        pieza(cuerpo, cilindroZ(0.0042, 0.0042, 0.05, 6), matGrafito, 'cuerpo_empunaduraNervio', side * 0.036, ry, rz);
       }
     }
 
     group.add(cuerpo);
 
     // ========================================================
-    // 2. PIEZA: CAÑO (Tobera tipo embudo con corona y electrodos)
+    // 2. PIEZA: CAÑO (un solo tubo central de grafito)
     // ========================================================
     const cano = new THREE.Group();
     cano.name = 'cano';
 
-    const emitterHorn = new THREE.Mesh(new THREE.CylinderGeometry(0.066, 0.048, 0.16, 20), matGrisClaro);
-    emitterHorn.name = 'emitterHorn';
-    emitterHorn.rotation.x = -Math.PI / 2;
-    emitterHorn.position.set(0, 0.035, -0.29);
-    cano.add(emitterHorn);
-
-    const muzzleMouthRing = new THREE.Mesh(new THREE.TorusGeometry(0.064, 0.006, 10, 24), matOro);
-    muzzleMouthRing.position.set(0, 0.035, -0.37);
-    cano.add(muzzleMouthRing);
-
-    const muzzleInterior = new THREE.Mesh(new THREE.CylinderGeometry(0.052, 0.052, 0.02, 16), matNegro);
-    muzzleInterior.rotation.x = Math.PI / 2;
-    muzzleInterior.position.set(0, 0.035, -0.365);
-    const plasmaMuzzleDisc = new THREE.Mesh(new THREE.CircleGeometry(0.046, 16), matPlasmaGlow);
-    plasmaMuzzleDisc.rotation.y = Math.PI;
-    plasmaMuzzleDisc.position.set(0, 0.035, -0.372);
-    cano.add(muzzleInterior, plasmaMuzzleDisc);
-
-    for (let p = 0; p < 4; p++) {
-      const angle = (p * Math.PI) / 2;
-      const prongMount = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.022, 0.11), matOro);
-      prongMount.position.set(
-        Math.cos(angle) * 0.068,
-        0.035 + Math.sin(angle) * 0.068,
-        -0.33
-      );
-      prongMount.rotation.z = angle;
-
-      const prongNode = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.020, 8), matPlasmaGlow);
-      prongNode.rotation.x = Math.PI / 2;
-      prongNode.position.set(
-        Math.cos(angle) * 0.068,
-        0.035 + Math.sin(angle) * 0.068,
-        -0.39
-      );
-      cano.add(prongMount, prongNode);
-    }
+    pieza(cano, cilindroZ(0.030, 0.030, 0.215, 12), matGrafito, 'cano_tubo', 0, AX, -0.2225);
 
     group.add(cano);
 
     // ========================================================
-    // 3. PIEZA: NÚCLEO (Cámara de energía visible y orbe de plasma magenta)
+    // 3. PIEZA: BOCA (campana en embudo con labio, interior oscuro y plasma al fondo)
     // ========================================================
-    const nucleo = new THREE.Group();
-    nucleo.name = 'nucleo';
+    const boca = new THREE.Group();
+    boca.name = 'boca';
 
-    const coreZ = -0.06;
-    const coreY = 0.035;
+    const bocaGarganta = -0.33;
+    const bocaLabio = -0.44;
+    const radioCampana = function(t) { return 0.034 + 0.052 * Math.pow(t, 2.2); }; // t: 0 garganta, 1 labio
+    const zCampana = function(t) { return bocaGarganta + (bocaLabio - bocaGarganta) * t; };
 
-    const nucleoOrb = new THREE.Mesh(new THREE.SphereGeometry(0.042, 20, 20), matPlasmaCore);
-    nucleoOrb.name = 'nucleoOrb';
-    nucleoOrb.position.set(0, coreY, coreZ);
-    nucleo.add(nucleoOrb);
-
-    const nucleoHalo = new THREE.Mesh(new THREE.SphereGeometry(0.058, 18, 18), new THREE.MeshBasicMaterial({
-      color: COLOR_MAGENTA_HEX,
-      transparent: true,
-      opacity: 0.75
-    }));
-    nucleoHalo.name = 'nucleoHalo';
-    nucleoHalo.position.set(0, coreY, coreZ);
-    nucleo.add(nucleoHalo);
-
-    for (let e of [-1, 1]) {
-      const electrode = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.016, 0.035, 12), matOro);
-      electrode.rotation.z = e * Math.PI / 2;
-      electrode.position.set(e * 0.055, coreY, coreZ);
-      nucleo.add(electrode);
+    const perfilExterior = [];
+    for (let k = 0; k <= 8; k++) {
+      const t = 1 - k / 8; // del labio (z menor) hacia la garganta
+      perfilExterior.push([radioCampana(t), zCampana(t)]);
     }
+    pieza(boca, revolucionZ(perfilExterior, 26), matGrisClaro, 'boca_campana', 0, AX, 0);
 
-    group.add(nucleo);
-
-    // ========================================================
-    // 4. PIEZA: ANILLO RELOJ (Anillo de reloj que gira alrededor del núcleo)
-    // ========================================================
-    const anilloReloj = new THREE.Group();
-    anilloReloj.name = 'anilloReloj';
-    anilloReloj.position.set(0, coreY, coreZ);
-
-    const clockTorus = new THREE.Mesh(new THREE.TorusGeometry(0.070, 0.0055, 8, 28), matOro);
-    clockTorus.name = 'clockTorus';
-    anilloReloj.add(clockTorus);
-
-    for (let t = 0; t < 12; t++) {
-      const tAngle = (t * Math.PI) / 6;
-      const tickBox = new THREE.Mesh(new THREE.BoxGeometry(0.0035, 0.009, 0.007), matOro);
-      tickBox.position.set(Math.cos(tAngle) * 0.070, Math.sin(tAngle) * 0.070, 0);
-      tickBox.rotation.z = tAngle;
-      anilloReloj.add(tickBox);
+    // Interior oscuro: mismo perfil achicado y en orden inverso para que sus caras miren hacia adentro
+    const perfilInterior = [];
+    for (let k = 0; k <= 8; k++) {
+      const t = k / 8; // de la garganta al labio (z decreciente)
+      perfilInterior.push([radioCampana(t) - 0.007, bocaGarganta - 0.005 + (bocaLabio + 0.004 - bocaGarganta + 0.005) * t]);
     }
+    pieza(boca, revolucionZ(perfilInterior, 26), matNegro, 'boca_interior', 0, AX, 0);
 
-    group.add(anilloReloj);
+    pieza(boca, new THREE.TorusGeometry(0.0825, 0.0085, 6, 24), matGrafito, 'boca_labio', 0, AX, bocaLabio);
+    for (let tb of [0.45, 0.72]) {
+      pieza(boca, new THREE.TorusGeometry(radioCampana(tb), 0.0045, 5, 20), matGrafito, 'boca_banda', 0, AX, zCampana(tb));
+    }
+    // Disco de plasma al fondo de la campana
+    pieza(boca, new THREE.CircleGeometry(0.026, 18), matPlasmaGlow, 'boca_plasma', 0, AX, -0.343, 0, Math.PI, 0);
+
+    group.add(boca);
 
     // ========================================================
-    // 5. PIEZA: BOBINAS (Bobinas magnéticas toroidales con soportes)
+    // 4. PIEZA: BOBINAS (anillos separados a lo largo del tubo, con soportes y bandas de energía)
     // ========================================================
     const bobinas = new THREE.Group();
     bobinas.name = 'bobinas';
 
-    const coilZPositions = [-0.22, -0.13, 0.02];
-    for (let i = 0; i < coilZPositions.length; i++) {
-      const cz = coilZPositions[i];
-      const coilTorus = new THREE.Mesh(new THREE.TorusGeometry(0.062, 0.008, 10, 24), matOro);
-      coilTorus.position.set(0, 0.035, cz);
-      bobinas.add(coilTorus);
-
-      const isolatorRing = new THREE.Mesh(new THREE.TorusGeometry(0.058, 0.005, 8, 20), matGrafito);
-      isolatorRing.position.set(0, 0.035, cz);
-      bobinas.add(isolatorRing);
-
-      for (let s of [-1, 1]) {
-        const mountBracket = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.024, 0.022), matGrisClaro);
-        mountBracket.position.set(s * 0.065, 0.035, cz);
-        bobinas.add(mountBracket);
-      }
+    const bobinaZ = [-0.305, -0.255, -0.205, -0.155];
+    const bobinaR = [0.044, 0.048, 0.052, 0.056];
+    for (let i = 0; i < bobinaZ.length; i++) {
+      pieza(bobinas, new THREE.TorusGeometry(bobinaR[i], 0.0095, 6, 18), matGrisClaro, 'bobinas_aro', 0, AX, bobinaZ[i]);
+      // Dos radios cruzados sostienen cada aro al tubo (sus extremos quedan dentro del aro)
+      pieza(bobinas, new THREE.CylinderGeometry(0.0045, 0.0045, bobinaR[i] * 2, 6), matGrafito, 'bobinas_radioY', 0, AX, bobinaZ[i]);
+      pieza(bobinas, new THREE.CylinderGeometry(0.0045, 0.0045, bobinaR[i] * 2, 6), matGrafito, 'bobinas_radioX', 0, AX, bobinaZ[i], 0, 0, Math.PI / 2);
+    }
+    // Bandas magenta de carga entre bobinas
+    for (let zb of [-0.280, -0.230, -0.180]) {
+      pieza(bobinas, new THREE.TorusGeometry(0.0325, 0.0045, 5, 14), matPlasmaGlow, 'bobinas_energia', 0, AX, zb);
     }
 
     group.add(bobinas);
 
     // ========================================================
-    // 6. PIEZA: ALETAS (Aletas de disipación térmica)
+    // 5. PIEZA: NÚCLEO (orbe magenta incandescente en la cámara, lo más brillante del arma)
+    // ========================================================
+    const nucleo = new THREE.Group();
+    nucleo.name = 'nucleo';
+
+    const coreZ = -0.032;
+    const coreY = AX;
+    nucleo.position.set(0, coreY, coreZ);
+
+    const nucleoOrb = pieza(nucleo, new THREE.SphereGeometry(0.035, 14, 10), matNucleo, 'nucleoOrb', 0, 0, 0);
+    const nucleoHalo = pieza(nucleo, new THREE.SphereGeometry(0.048, 14, 10), matHalo, 'nucleoHalo', 0, 0, 0);
+
+    group.add(nucleo);
+
+    // ========================================================
+    // 6. PIEZA: ANILLO RELOJ (una sola malla: aro + 12 marcas de hora, gira alrededor del núcleo)
+    // ========================================================
+    const anilloReloj = new THREE.Group();
+    anilloReloj.name = 'anilloReloj';
+    anilloReloj.position.set(0, coreY, coreZ);
+
+    const relojGeos = [new THREE.TorusGeometry(0.052, 0.0045, 6, 28)];
+    for (let h = 0; h < 12; h++) {
+      const a = h * Math.PI / 6;
+      const cardinal = (h % 3 === 0);
+      const largo = cardinal ? 0.016 : 0.010;
+      const g = new THREE.BoxGeometry(0.0045, largo, 0.007);
+      const mtx = new THREE.Matrix4().compose(
+        new THREE.Vector3(Math.sin(a) * 0.052, Math.cos(a) * 0.052, 0),
+        new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, -a)),
+        new THREE.Vector3(1, 1, 1)
+      );
+      g.applyMatrix4(mtx);
+      relojGeos.push(g);
+    }
+    // Esfera en las 12 para distinguir el giro
+    const marca12 = new THREE.SphereGeometry(0.006, 8, 6);
+    marca12.translate(0, 0.055, 0);
+    relojGeos.push(marca12);
+
+    pieza(anilloReloj, fusionarGeometrias(relojGeos), matPlasmaGlow, 'anilloReloj_aro', 0, 0, 0);
+
+    group.add(anilloReloj);
+
+    // ========================================================
+    // 7. PIEZA: ALETAS (aletas de ventilación laterales, lentes achatados con borde suave)
     // ========================================================
     const aletas = new THREE.Group();
     aletas.name = 'aletas';
 
-    for (let f = 0; f < 3; f++) {
-      const fz = -0.06 + f * 0.06;
-      for (let side of [-1, 1]) {
-        const finPlate = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.075, 0.040), matGrafito);
-        finPlate.rotation.z = side * 0.35;
-        finPlate.rotation.y = side * 0.15;
-        finPlate.position.set(side * 0.082, 0.035, fz);
-
-        const finEdgeGold = new THREE.Mesh(new THREE.BoxGeometry(0.009, 0.078, 0.006), matOro);
-        finEdgeGold.rotation.z = side * 0.35;
-        finEdgeGold.rotation.y = side * 0.15;
-        finEdgeGold.position.set(side * 0.083, 0.035, fz + 0.018);
-
-        aletas.add(finPlate, finEdgeGold);
+    for (let side of [-1, 1]) {
+      for (let f = 0; f < 3; f++) {
+        const fin = pieza(aletas, new THREE.SphereGeometry(0.036, 8, 5), matGrafito, 'aletas_placa',
+          side * 0.086, AX, 0.052 + f * 0.018);
+        fin.scale.set(1.0, 1.4, 0.16);
       }
     }
 
     group.add(aletas);
 
     // ========================================================
-    // 7. PIEZA: CELDA (Celda de energía cilíndrica como cargador)
+    // 8. PIEZA: CELDA (celda de energía cilíndrica grande, con núcleo magenta visible tras barras)
     // ========================================================
     const celda = new THREE.Group();
     celda.name = 'celda';
+    celda.position.set(0, -0.125, -0.065);
+    celda.rotation.x = 0.18;
 
-    const cellAngle = -0.32;
-    celda.position.set(0, -0.095, 0.01);
-    celda.rotation.x = cellAngle;
-
-    const cellCapTop = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.026, 0.018, 16), matOro);
-    cellCapTop.position.set(0, 0.065, 0);
-    const cellCapBottom = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.026, 0.022, 16), matOro);
-    cellCapBottom.position.set(0, -0.065, 0);
-    celda.add(cellCapTop, cellCapBottom);
-
-    const cellBody = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.024, 0.12, 16), matNegro);
-    celda.add(cellBody);
-
-    const cellCore = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.10, 14), matPlasmaGlow);
-    celda.add(cellCore);
-
+    pieza(celda, new THREE.CylinderGeometry(0.050, 0.050, 0.024, 16), matNegro, 'celda_base', 0, 0.066, 0);
+    pieza(celda, new THREE.CylinderGeometry(0.044, 0.044, 0.016, 16), matGrisClaro, 'celda_tapaSuperior', 0, 0.058, 0);
+    pieza(celda, new THREE.CylinderGeometry(0.044, 0.044, 0.016, 16), matGrisClaro, 'celda_tapaInferior', 0, -0.058, 0);
+    pieza(celda, new THREE.CylinderGeometry(0.036, 0.040, 0.012, 16), matGrafito, 'celda_pie', 0, -0.072, 0);
+    pieza(celda, new THREE.CylinderGeometry(0.030, 0.030, 0.100, 14), matPlasmaGlow, 'celda_plasma', 0, 0, 0);
     for (let cr of [-0.03, 0.03]) {
-      const cellRing = new THREE.Mesh(new THREE.TorusGeometry(0.025, 0.003, 8, 16), matOro);
-      cellRing.rotation.x = Math.PI / 2;
-      cellRing.position.set(0, cr, 0);
-      celda.add(cellRing);
+      pieza(celda, new THREE.TorusGeometry(0.034, 0.005, 5, 14), matNegro, 'celda_anillo', 0, cr, 0, Math.PI / 2, 0, 0);
     }
-
-    const cellMount = new THREE.Mesh(new THREE.BoxGeometry(0.048, 0.028, 0.040), matGrafito);
-    cellMount.position.set(0, 0.075, 0);
-    celda.add(cellMount);
+    for (let b = 0; b < 6; b++) {
+      const ang = b * Math.PI / 3;
+      pieza(celda, new THREE.CylinderGeometry(0.0035, 0.0035, 0.116, 6), matGrafito, 'celda_barra',
+        Math.cos(ang) * 0.036, 0, Math.sin(ang) * 0.036);
+    }
 
     group.add(celda);
 
     // ========================================================
-    // 8. PIEZA: GATILLO (Guardamonte redondeado y gatillo en Oro)
+    // 9. PIEZA: GATILLO (guardamonte redondeado y palanca con acento magenta)
     // ========================================================
     const gatillo = new THREE.Group();
     gatillo.name = 'gatillo';
 
     const guardShape = new THREE.Shape();
-    guardShape.moveTo(-0.02, -0.035);
-    guardShape.quadraticCurveTo(-0.02, -0.095, 0.03, -0.095);
-    guardShape.lineTo(0.06, -0.095);
-    guardShape.lineTo(0.06, -0.035);
-    guardShape.lineTo(0.05, -0.035);
-    guardShape.lineTo(0.05, -0.085);
-    guardShape.quadraticCurveTo(0.02, -0.085, -0.01, -0.085);
-    guardShape.lineTo(-0.01, -0.035);
-    guardShape.lineTo(-0.02, -0.035);
-    const guardGeo = new THREE.ExtrudeGeometry(guardShape, { depth: 0.032, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.005, bevelThickness: 0.005 });
-    guardGeo.translate(0, 0, -0.016);
-    const guardMesh = new THREE.Mesh(guardGeo, matGrafito);
-    guardMesh.name = 'guardMesh';
-    guardMesh.rotation.y = -Math.PI / 2;
-    guardMesh.position.set(0, 0, 0.02);
-    gatillo.add(guardMesh);
+    guardShape.moveTo(-0.02, -0.02);
+    guardShape.lineTo(-0.02, -0.07);
+    guardShape.quadraticCurveTo(-0.02, -0.10, 0.015, -0.10);
+    guardShape.lineTo(0.06, -0.10);
+    guardShape.lineTo(0.06, -0.02);
+    guardShape.lineTo(0.05, -0.02);
+    guardShape.lineTo(0.05, -0.09);
+    guardShape.lineTo(0.015, -0.09);
+    guardShape.quadraticCurveTo(-0.01, -0.09, -0.01, -0.07);
+    guardShape.lineTo(-0.01, -0.02);
+    guardShape.lineTo(-0.02, -0.02);
+    const guardGeo = new THREE.ExtrudeGeometry(guardShape, { depth: 0.026, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.004, bevelThickness: 0.004, curveSegments: 4 });
+    guardGeo.translate(0, 0, -0.013);
+    pieza(gatillo, guardGeo, matGrafito, 'gatillo_guardamonte', 0, 0, 0.02, 0, -Math.PI / 2, 0);
 
-    const triggerBlade = new THREE.Mesh(new THREE.CylinderGeometry(0.0035, 0.0035, 0.026, 8), matOro);
-    triggerBlade.rotation.x = 0.38;
-    triggerBlade.position.set(0, -0.058, 0.038);
-    const triggerPin = new THREE.Mesh(new THREE.CylinderGeometry(0.003, 0.003, 0.022, 8), matOro);
-    triggerPin.rotation.z = Math.PI / 2;
-    triggerPin.position.set(0, -0.046, 0.038);
-    gatillo.add(triggerBlade, triggerPin);
+    pieza(gatillo, new THREE.CylinderGeometry(0.0045, 0.0045, 0.028, 8), matPlasmaGlow, 'gatillo_palanca', 0, -0.052, 0.036, -0.35, 0, 0);
+    pieza(gatillo, new THREE.CylinderGeometry(0.004, 0.004, 0.030, 8), matGrafito, 'gatillo_eje', 0, -0.040, 0.032, 0, 0, Math.PI / 2);
 
     group.add(gatillo);
 
     // ========================================================
-    // 9. PIEZA: MIRA (Colimador holográfico cronográfico compacto)
+    // 10. PIEZA: MIRA (anillo colimador con punto magenta sobre el collar)
     // ========================================================
     const mira = new THREE.Group();
     mira.name = 'mira';
 
-    const sightBase = new THREE.Mesh(new THREE.BoxGeometry(0.036, 0.018, 0.08), matGrafito);
-    sightBase.position.set(0, 0.125, -0.02);
-    mira.add(sightBase);
-
-    const sightHood = new THREE.Mesh(new THREE.TorusGeometry(0.024, 0.004, 8, 16), matOro);
-    sightHood.position.set(0, 0.155, -0.02);
-    mira.add(sightHood);
-
-    const holoGlass = new THREE.Mesh(new THREE.CircleGeometry(0.022, 16), new THREE.MeshBasicMaterial({
-      color: COLOR_MAGENTA_HEX,
-      transparent: true,
-      opacity: 0.35
-    }));
-    holoGlass.position.set(0, 0.155, -0.02);
-    const holoDot = new THREE.Mesh(new THREE.CircleGeometry(0.004, 10), matPlasmaGlow);
-    holoDot.position.set(0, 0.155, -0.019);
-    mira.add(holoGlass, holoDot);
+    pieza(mira, new THREE.CylinderGeometry(0.008, 0.009, 0.024, 8), matGrafito, 'mira_poste', 0, 0.127, -0.105);
+    pieza(mira, new THREE.TorusGeometry(0.016, 0.0045, 6, 18), matGrafito, 'mira_aro', 0, 0.155, -0.105);
+    pieza(mira, new THREE.CylinderGeometry(0.0025, 0.0025, 0.032, 6), matGrafito, 'mira_barra', 0, 0.155, -0.105, 0, 0, Math.PI / 2);
+    pieza(mira, new THREE.SphereGeometry(0.006, 8, 6), matPlasmaGlow, 'mira_punto', 0, 0.155, -0.105);
 
     group.add(mira);
 
     // ========================================================
-    // 10. PIEZA: INDICADOR CONSOLA (5 segmentos: balaIndicador_1 a 5)
+    // 11. PIEZA: INDICADOR CONSOLA (fila propia sobre el blindaje, marco oscuro y 5 segmentos gruesos)
+    // balaIndicador_1 queda más cerca del jugador (última bala) y balaIndicador_5 más al frente
     // ========================================================
     const indicatorConsole = new THREE.Group();
     indicatorConsole.name = 'indicadorConsola';
-    indicatorConsole.position.set(-0.065, 0.098, 0.10);
-    indicatorConsole.rotation.z = -0.55;
+    indicatorConsole.position.set(0, AX + 0.0885, 0.1265);
+    indicatorConsole.rotation.x = 0.12;
 
-    const consolePlate = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.006, 0.16), matGrafito);
-    const consoleBezel = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.008, 0.006), matOro);
-    consoleBezel.position.set(0, 0.001, 0.08);
-    indicatorConsole.add(consolePlate, consoleBezel);
+    // Zócalo de grafito: sostiene el marco inclinado sobre el blindaje (sin piezas flotando)
+    pieza(indicatorConsole, placaRedondeada(0.040, 0.118, 0.010, 0.030, 0.0015), matGrafito, 'indicadorBase', 0, -0.0175, 0.0);
+    pieza(indicatorConsole, placaRedondeada(0.052, 0.158, 0.013, 0.008, 0.0015), matNegro, 'indicadorMarco', 0, 0, 0);
 
     const indicatorMaterials = [];
     const indicatorMeshes = [];
@@ -456,19 +464,9 @@
       const indMat = new THREE.MeshBasicMaterial({ color: COLOR_MAGENTA_HEX });
       indicatorMaterials.push(indMat);
 
-      const segGroup = new THREE.Group();
-      segGroup.name = 'balaIndicador_' + s;
-
-      const segBezel = new THREE.Mesh(new THREE.BoxGeometry(0.020, 0.008, 0.022), matOro);
-      const sz = 0.055 - (s - 1) * 0.028;
-      segBezel.position.set(0, 0.004, sz);
-
-      const segMesh = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.010, 0.016), indMat);
-      segMesh.position.set(0, 0.006, sz);
-      segMesh.name = 'balaIndicador_' + s + '_mesh';
-
-      segGroup.add(segBezel, segMesh);
-      indicatorConsole.add(segGroup);
+      const sz = 0.060 - (s - 1) * 0.030;
+      const segMesh = pieza(indicatorConsole, placaRedondeada(0.032, 0.019, 0.007, 0.008, 0.0015), indMat,
+        'balaIndicador_' + s, 0, 0.0055, sz);
       indicatorMeshes.push(segMesh);
     }
 
@@ -489,7 +487,7 @@
     // Función expuesta para encender o apagar cada segmento según munición
     group.userData.setAmmoSegments = function(ammoCount) {
       for (let i = 0; i < 5; i++) {
-        indicatorMaterials[i].color.setHex(i < ammoCount ? COLOR_MAGENTA_HEX : 0x181e28);
+        indicatorMaterials[i].color.setHex(i < ammoCount ? COLOR_MAGENTA_HEX : COLOR_BALA_VACIA_HEX);
       }
     };
 
@@ -523,7 +521,7 @@
         const progress = Math.max(0, Math.min(1.0, 1.0 - (reloadTimer / reloadDuration)));
         const activeCount = Math.floor(progress * 5.99);
         for (let i = 0; i < 5; i++) {
-          indicatorMaterials[i].color.setHex(i < activeCount ? COLOR_MAGENTA_HEX : 0x181e28);
+          indicatorMaterials[i].color.setHex(i < activeCount ? COLOR_MAGENTA_HEX : COLOR_BALA_VACIA_HEX);
         }
       } else {
         // Estado normal de combate
@@ -532,16 +530,16 @@
           if (group.userData.flickerTimers[i] > 0) {
             group.userData.flickerTimers[i] -= dt;
             const flash = Math.sin(group.userData.flickerTimers[i] * 55) > 0;
-            indicatorMaterials[i].color.setHex(flash ? 0xffffff : COLOR_MAGENTA_HEX);
+            indicatorMaterials[i].color.setHex(flash ? COLOR_BALA_FLASH_HEX : COLOR_MAGENTA_HEX);
           } else if (i < currentAmmo) {
             if (currentAmmo === 1 && i === 0) {
               const warnBlink = (Math.sin(now * 12) > 0);
-              indicatorMaterials[i].color.setHex(warnBlink ? COLOR_MAGENTA_HEX : 0x4a0a28);
+              indicatorMaterials[i].color.setHex(warnBlink ? COLOR_MAGENTA_HEX : COLOR_BALA_ALERTA_HEX);
             } else {
               indicatorMaterials[i].color.setHex(COLOR_MAGENTA_HEX);
             }
           } else {
-            indicatorMaterials[i].color.setHex(0x181e28);
+            indicatorMaterials[i].color.setHex(COLOR_BALA_VACIA_HEX);
           }
         }
       }
