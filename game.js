@@ -4665,26 +4665,67 @@
   });
 
   // ========================================================
-  // SESIÓN DE USUARIO (Fase 1: Invitado y cerrar sesión)
+  // SESIÓN DE USUARIO (Fase 1 y 2: Invitado, Google y cerrar sesión)
   // El progreso de invitado vive en las claves chrono_* del localStorage de este
-  // dispositivo. Aquí solo se guarda el tipo de sesión; Google y Cuenta Chrono se suman después.
+  // dispositivo. Aquí se guarda el tipo de sesión y el nombre visible.
   // ========================================================
+  const loginErrorMsg = document.getElementById('login-error-msg');
+
+  function showLoginError(msg) {
+    if (!loginErrorMsg) return;
+    if (!msg) {
+      loginErrorMsg.textContent = '';
+      loginErrorMsg.classList.add('hidden');
+    } else {
+      loginErrorMsg.textContent = msg;
+      loginErrorMsg.classList.remove('hidden');
+    }
+  }
+
   function getSession() {
     try { return localStorage.getItem('chrono_session'); } catch (e) { return null; }
   }
 
-  function setSession(type) {
-    try { localStorage.setItem('chrono_session', type); } catch (e) {}
+  function getSessionName() {
+    try { return localStorage.getItem('chrono_session_name') || ''; } catch (e) { return ''; }
+  }
+
+  function setSession(type, displayName) {
+    try {
+      localStorage.setItem('chrono_session', type);
+      if (displayName) {
+        localStorage.setItem('chrono_session_name', displayName);
+      } else {
+        localStorage.removeItem('chrono_session_name');
+      }
+    } catch (e) {}
     updateSessionLabel();
   }
 
   function clearSession() {
-    try { localStorage.removeItem('chrono_session'); } catch (e) {}
+    try {
+      localStorage.removeItem('chrono_session');
+      localStorage.removeItem('chrono_session_name');
+    } catch (e) {}
   }
 
   function updateSessionLabel() {
     const label = document.getElementById('menu-session-label');
-    if (label) label.textContent = 'INVITADO';
+    const chip = document.getElementById('menu-session-chip');
+    const icon = chip ? chip.querySelector('.session-icon') : null;
+    const type = getSession();
+    const name = getSessionName();
+
+    if (type === 'google') {
+      if (icon) icon.textContent = 'G';
+      if (label) label.textContent = name ? `GOOGLE · ${name}` : 'GOOGLE';
+    } else if (type === 'chrono') {
+      if (icon) icon.textContent = '⏱';
+      if (label) label.textContent = name ? `CHRONO · ${name}` : 'CHRONO';
+    } else {
+      if (icon) icon.textContent = '👤';
+      if (label) label.textContent = 'INVITADO';
+    }
   }
 
   function hasSeenIntroNow() {
@@ -4693,6 +4734,7 @@
 
   // Tras iniciar sesión: instrucciones la primera vez, menú las demás
   function enterAfterLogin() {
+    showLoginError('');
     window.chronoAudio.init();
     updateSessionLabel();
     if (hasSeenIntroNow()) {
@@ -4702,6 +4744,30 @@
       showScreen(screenInstructions);
       gameState = 'instructions';
     }
+  }
+
+  const btnLoginGoogle = document.getElementById('btn-login-google');
+  if (btnLoginGoogle) {
+    const originalGoogleHtml = btnLoginGoogle.innerHTML;
+    btnLoginGoogle.addEventListener('click', async () => {
+      showLoginError('');
+      if (!window.chronoAuth) {
+        showLoginError('El módulo de Firebase no se cargó correctamente.');
+        return;
+      }
+      btnLoginGoogle.disabled = true;
+      btnLoginGoogle.innerHTML = '<span class="btn-icon">G</span> CONECTANDO...';
+      try {
+        const res = await window.chronoAuth.loginWithGoogle();
+        setSession('google', res.displayName);
+        enterAfterLogin();
+      } catch (err) {
+        showLoginError(err && err.message ? err.message : 'No se pudo iniciar sesión con Google.');
+      } finally {
+        btnLoginGoogle.disabled = false;
+        btnLoginGoogle.innerHTML = originalGoogleHtml;
+      }
+    });
   }
 
   const btnLoginGuest = document.getElementById('btn-login-guest');
@@ -4714,8 +4780,12 @@
 
   const btnLogout = document.getElementById('btn-logout');
   if (btnLogout) {
-    btnLogout.addEventListener('click', () => {
+    btnLogout.addEventListener('click', async () => {
+      if (window.chronoAuth && typeof window.chronoAuth.logout === 'function') {
+        await window.chronoAuth.logout();
+      }
       clearSession();
+      showLoginError('');
       showScreen(screenLogin);
       gameState = 'login';
     });

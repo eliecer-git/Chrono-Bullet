@@ -26,9 +26,8 @@
         <p class="subtitle login-subtitle">Elige cómo quieres entrar.</p>
 
         <div class="login-options">
-          <button id="btn-login-google" class="cyber-btn secondary-btn login-btn" disabled>
+          <button id="btn-login-google" class="cyber-btn secondary-btn login-btn">
             <span class="btn-icon">G</span> ENTRAR CON GOOGLE
-            <span class="login-soon">PRÓXIMAMENTE</span>
           </button>
           <button id="btn-login-chrono" class="cyber-btn secondary-btn login-btn" disabled>
             <span class="btn-icon">⏱</span> CUENTA CHRONO
@@ -38,6 +37,8 @@
             <span class="btn-icon">👤</span> ENTRAR COMO INVITADO
           </button>
         </div>
+
+        <p id="login-error-msg" class="login-error hidden"></p>
 
         <p class="login-note">
           Como invitado, tu progreso (monedas, armas y skins) se guarda <strong>solo en este dispositivo</strong>.
@@ -778,6 +779,10 @@
   <script src="armas/francotirador.js"></script>
   <script src="armas/escopeta.js"></script>
   <script src="armas/canon_plasma.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script src="firebase-auth.js"></script>
   <script src="game.js"></script>
 </body>
 </html>
