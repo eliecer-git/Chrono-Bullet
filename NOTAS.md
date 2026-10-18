@@ -18,7 +18,7 @@
 ## 3. Qué hace cada archivo
 *(Esta sección debe mantenerse actualizada cada vez que se cree o modifique un archivo)*
 
-- **`index.html`**: Estructura principal del juego, contenedor del lienzo 3D (canvas), interfaz de usuario (HUD de salud, munición, tiempo y menús).
+- **`index.html`**: Estructura principal del juego, contenedor del lienzo 3D (canvas), interfaz de usuario (HUD de salud, munición, tiempo y menús). Incluye la pantalla de acceso (`screen-login`: Google, Cuenta Chrono e Invitado) y el botón de cerrar sesión del menú.
 - **`style.css`**: Hojas de estilo para la interfaz de usuario, tipografías, animaciones de pantalla, menús y elementos superpuestos del HUD.
 - **`armas/pistola.js`**: Módulo 3D de la pistola táctica Chrono (geometría, materiales PBR, corredera, armazón y detalles cronográficos).
 - **`armas/subfusil.js`**: Módulo 3D del subfusil Vector Chrono (geometría aerodinámica, emblema cronográfico, cargador extendido y culata retráctil).
@@ -26,7 +26,7 @@
 - **`armas/francotirador.js`**: Módulo 3D del rifle de francotirador Chrono (chasis negro y oro, cañón largo, bípode plegado, cerrojo y mira telescópica con lente de reloj).
 - **`armas/escopeta.js`**: Módulo 3D de la escopeta pesada Chrono (chasis rojo oscuro con bordes dorados, zonas profundas negro azulado, acentos turquesa emisivos, culata ergonómica biselada, tambor acentuado, símbolo de reloj frontal y doble cañón macizo).
 - **`armas/canon_plasma.js`**: Módulo 3D del cañón de plasma Chrono (carcasa platino/gris claro, núcleo de plasma suspendido, anillo de reloj 3D giratorio, bobinas magnéticas, tobera tipo embudo y consola diegética con 5 segmentos luminosos `balaIndicador_1` a `5`).
-- **`game.js`**: Núcleo lógico del juego: bucle principal (game loop), física, control del jugador en primera persona, cámara, construcción procedural 3D de todas las armas, enemigos, proyectiles, efectos de partículas, shaders estilizados, sistema de tiempo, optimización por batching/fusión de geometrías estáticas, reciclado de materiales y modo de alto rendimiento móvil con panel de depuración (FPS, draw calls, triángulos).
+- **`game.js`**: Núcleo lógico del juego: sesión de usuario (invitado y cerrar sesión; el progreso de invitado vive en `localStorage` del dispositivo), bucle principal (game loop), física, control del jugador en primera persona, cámara, construcción procedural 3D de todas las armas, enemigos, proyectiles, efectos de partículas, shaders estilizados, sistema de tiempo, optimización por batching/fusión de geometrías estáticas, reciclado de materiales y modo de alto rendimiento móvil con panel de depuración (FPS, draw calls, triángulos).
 - **`audio.js`**: Gestor de audio y efectos de sonido sintetizados y procedurales (disparos, recargas, impactos, habilidades temporales).
 - **`three.min.js`**: Biblioteca Three.js para renderizado de gráficos 3D acelerados por GPU vía WebGL.
 - **`mapa 10.mp4`**: Recurso multimedia de fondo/video para la ambientación o menú.

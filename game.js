@@ -4324,6 +4324,7 @@
   // 14. CARGA DE MAPAS Y GESTIÓN DE PANTALLAS
   // ========================================================
 
+  const screenLogin = document.getElementById('screen-login');
   const screenInstructions = document.getElementById('screen-instructions');
   const screenMainMenu = document.getElementById('screen-main-menu');
   const screenMapSelect = document.getElementById('screen-map-select');
@@ -4349,7 +4350,7 @@
   const hudLivesText = document.getElementById('hud-lives-text');
 
   function showScreen(screenElement) {
-    [screenInstructions, screenMainMenu, screenMapSelect, screenShop, screenGame].forEach(s => {
+    [screenLogin, screenInstructions, screenMainMenu, screenMapSelect, screenShop, screenGame].forEach(s => {
       if (s) s.classList.remove('active');
     });
     if (screenElement) screenElement.classList.add('active');
@@ -4662,6 +4663,63 @@
     showScreen(screenMainMenu);
     gameState = 'menu';
   });
+
+  // ========================================================
+  // SESIÓN DE USUARIO (Fase 1: Invitado y cerrar sesión)
+  // El progreso de invitado vive en las claves chrono_* del localStorage de este
+  // dispositivo. Aquí solo se guarda el tipo de sesión; Google y Cuenta Chrono se suman después.
+  // ========================================================
+  function getSession() {
+    try { return localStorage.getItem('chrono_session'); } catch (e) { return null; }
+  }
+
+  function setSession(type) {
+    try { localStorage.setItem('chrono_session', type); } catch (e) {}
+    updateSessionLabel();
+  }
+
+  function clearSession() {
+    try { localStorage.removeItem('chrono_session'); } catch (e) {}
+  }
+
+  function updateSessionLabel() {
+    const label = document.getElementById('menu-session-label');
+    if (label) label.textContent = 'INVITADO';
+  }
+
+  function hasSeenIntroNow() {
+    try { return localStorage.getItem('chrono_intro_seen') === 'true'; } catch (e) { return false; }
+  }
+
+  // Tras iniciar sesión: instrucciones la primera vez, menú las demás
+  function enterAfterLogin() {
+    window.chronoAudio.init();
+    updateSessionLabel();
+    if (hasSeenIntroNow()) {
+      showScreen(screenMainMenu);
+      gameState = 'menu';
+    } else {
+      showScreen(screenInstructions);
+      gameState = 'instructions';
+    }
+  }
+
+  const btnLoginGuest = document.getElementById('btn-login-guest');
+  if (btnLoginGuest) {
+    btnLoginGuest.addEventListener('click', () => {
+      setSession('guest');
+      enterAfterLogin();
+    });
+  }
+
+  const btnLogout = document.getElementById('btn-logout');
+  if (btnLogout) {
+    btnLogout.addEventListener('click', () => {
+      clearSession();
+      showScreen(screenLogin);
+      gameState = 'login';
+    });
+  }
 
   document.getElementById('btn-start-game').addEventListener('click', () => {
     window.chronoAudio.init();
@@ -5615,10 +5673,16 @@
 
   applyGlobalTheme(currentGlobalTheme);
 
-  if (hasSeenIntro) {
+  if (!getSession()) {
+    // Sin sesión: primero elegir cómo entrar (Google / Cuenta Chrono / Invitado)
+    showScreen(screenLogin);
+    gameState = 'login';
+  } else if (hasSeenIntro) {
+    updateSessionLabel();
     showScreen(screenMainMenu);
     gameState = 'menu';
   } else {
+    updateSessionLabel();
     showScreen(screenInstructions);
     gameState = 'instructions';
   }

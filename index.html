@@ -16,8 +16,45 @@
   <!-- CONTENEDOR PRINCIPAL DE PANTALLAS -->
   <div id="app-container">
 
-    <!-- PANTALLA 1: INSTRUCCIONES (Primera vista obligatoria al cargar) -->
-    <section id="screen-instructions" class="screen active">
+    <!-- PANTALLA 0: ACCESO (Google / Cuenta Chrono / Invitado) -->
+    <section id="screen-login" class="screen">
+      <div class="login-card glass-panel">
+        <div class="cyber-badge pulse-cyan">ACCESO AL SISTEMA</div>
+        <h1 class="chrono-title login-title">
+          <span class="cyan-part">CHRONO</span> <span class="red-part">BULLET</span>
+        </h1>
+        <p class="subtitle login-subtitle">Elige cómo quieres entrar.</p>
+
+        <div class="login-options">
+          <button id="btn-login-google" class="cyber-btn secondary-btn login-btn" disabled>
+            <span class="btn-icon">G</span> ENTRAR CON GOOGLE
+            <span class="login-soon">PRÓXIMAMENTE</span>
+          </button>
+          <button id="btn-login-chrono" class="cyber-btn secondary-btn login-btn" disabled>
+            <span class="btn-icon">⏱</span> CUENTA CHRONO
+            <span class="login-soon">PRÓXIMAMENTE</span>
+          </button>
+          <button id="btn-login-guest" class="cyber-btn primary-btn login-btn pulse-glow">
+            <span class="btn-icon">👤</span> ENTRAR COMO INVITADO
+          </button>
+        </div>
+
+        <p class="login-note">
+          Como invitado, tu progreso (monedas, armas y skins) se guarda <strong>solo en este dispositivo</strong>.
+          Con una cuenta, tu progreso te sigue a cualquier dispositivo.
+        </p>
+
+        <div class="menu-decorations">
+          <span class="decor-corner top-left"></span>
+          <span class="decor-corner top-right"></span>
+          <span class="decor-corner bottom-left"></span>
+          <span class="decor-corner bottom-right"></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- PANTALLA 1: INSTRUCCIONES (Primera vista obligatoria tras el acceso) -->
+    <section id="screen-instructions" class="screen">
       <div class="instructions-card glass-panel">
         <header class="instructions-header">
           <div class="cyber-badge">INICIALIZACIÓN DE SISTEMA</div>
@@ -77,6 +114,10 @@
       <div class="menu-card glass-panel">
         <div class="menu-header-bar">
           <div class="cyber-badge pulse-cyan">SISTEMA CINEGÉTICO CRONAL</div>
+          <div class="session-chip" id="menu-session-chip" title="Sesión actual">
+            <span class="session-icon">👤</span>
+            <span class="session-label" id="menu-session-label">INVITADO</span>
+          </div>
           <div class="coin-badge-display" title="Monedas ganadas en combate">
             <span class="coin-icon">🪙</span>
             <span class="coin-count-text" id="menu-coin-count">0</span>
@@ -128,6 +169,9 @@
           </button>
           <button id="btn-view-instructions" class="cyber-btn secondary-btn">
             <span class="btn-icon">📖</span> INSTRUCCIONES
+          </button>
+          <button id="btn-logout" class="cyber-btn secondary-btn logout-btn">
+            <span class="btn-icon">⎋</span> CERRAR SESIÓN
           </button>
         </div>
 

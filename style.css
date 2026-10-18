@@ -2875,3 +2875,99 @@ body.is-touch .game-modal { background: rgba(4, 6, 10, 0.88); }
 }
 
 
+
+
+/* ========================================================
+   PANTALLA DE ACCESO (Google / Cuenta Chrono / Invitado)
+   ======================================================== */
+.login-card {
+  width: 440px;
+  max-width: 94vw;
+  padding: 30px 26px 26px;
+  text-align: center;
+}
+
+.login-title {
+  margin: 6px 0 4px;
+}
+
+.login-subtitle {
+  margin-bottom: 22px;
+}
+
+.login-options {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.login-btn {
+  width: 100%;
+  position: relative;
+}
+
+.login-btn:disabled,
+.login-btn:disabled:hover {
+  opacity: 0.45;
+  cursor: not-allowed;
+  background: rgba(255, 255, 255, 0.04);
+  color: #fff;
+  box-shadow: none;
+  transform: none;
+}
+
+.login-soon {
+  font-size: 0.55rem;
+  letter-spacing: 1px;
+  padding: 2px 6px;
+  border: 1px solid rgba(224, 242, 254, 0.5);
+  border-radius: 10px;
+  color: var(--text-muted);
+}
+
+.login-note {
+  font-size: 0.92rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+  max-width: 360px;
+  margin: 0 auto;
+}
+
+.login-note strong {
+  color: var(--text-main);
+}
+
+/* Etiqueta de sesión en el menú principal */
+.menu-header-bar {
+  flex-wrap: wrap;
+}
+
+.session-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-dim);
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-family: var(--font-display);
+  font-size: 0.66rem;
+  letter-spacing: 1.5px;
+  color: var(--text-main);
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.logout-btn {
+  border-color: rgba(255, 32, 82, 0.55);
+}
+
+.logout-btn:hover {
+  background: var(--red);
+  border-color: var(--red);
+  color: #fff;
+  box-shadow: 0 0 20px var(--red-glow);
+}
