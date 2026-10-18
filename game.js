@@ -4732,9 +4732,25 @@
     try { return localStorage.getItem('chrono_intro_seen') === 'true'; } catch (e) { return false; }
   }
 
+  const loginMainOptions = document.getElementById('login-main-options');
+  const chronoAccountPanel = document.getElementById('chrono-account-panel');
+  const chronoUsernameInput = document.getElementById('chrono-username');
+  const chronoPasswordInput = document.getElementById('chrono-password');
+
+  function showChronoSubpanel(open) {
+    showLoginError('');
+    if (loginMainOptions) loginMainOptions.classList.toggle('hidden', !!open);
+    if (chronoAccountPanel) chronoAccountPanel.classList.toggle('hidden', !open);
+    if (open && chronoUsernameInput) {
+      setTimeout(() => { try { chronoUsernameInput.focus(); } catch (e) {} }, 40);
+    }
+  }
+
   // Tras iniciar sesión: instrucciones la primera vez, menú las demás
   function enterAfterLogin() {
     showLoginError('');
+    showChronoSubpanel(false);
+    if (chronoPasswordInput) chronoPasswordInput.value = '';
     window.chronoAudio.init();
     updateSessionLabel();
     if (hasSeenIntroNow()) {
@@ -4770,6 +4786,77 @@
     });
   }
 
+  const btnLoginChrono = document.getElementById('btn-login-chrono');
+  if (btnLoginChrono) {
+    btnLoginChrono.addEventListener('click', () => {
+      showChronoSubpanel(true);
+    });
+  }
+
+  const btnChronoBack = document.getElementById('btn-chrono-back');
+  if (btnChronoBack) {
+    btnChronoBack.addEventListener('click', () => {
+      showChronoSubpanel(false);
+    });
+  }
+
+  const btnChronoSignin = document.getElementById('btn-chrono-signin');
+  const btnChronoRegister = document.getElementById('btn-chrono-register');
+
+  async function handleChronoAuthAction(mode) {
+    showLoginError('');
+    if (!window.chronoAuth) {
+      showLoginError('El módulo de Firebase no se cargó correctamente.');
+      return;
+    }
+    const username = chronoUsernameInput ? chronoUsernameInput.value : '';
+    const password = chronoPasswordInput ? chronoPasswordInput.value : '';
+
+    const activeBtn = mode === 'register' ? btnChronoRegister : btnChronoSignin;
+    const origSigninHtml = btnChronoSignin ? btnChronoSignin.innerHTML : '';
+    const origRegHtml = btnChronoRegister ? btnChronoRegister.innerHTML : '';
+
+    if (btnChronoSignin) btnChronoSignin.disabled = true;
+    if (btnChronoRegister) btnChronoRegister.disabled = true;
+    if (activeBtn) {
+      activeBtn.innerHTML = mode === 'register' ? 'CREANDO CUENTA...' : 'VERIFICANDO...';
+    }
+
+    try {
+      const res = mode === 'register'
+        ? await window.chronoAuth.registerWithChrono(username, password)
+        : await window.chronoAuth.loginWithChrono(username, password);
+      setSession('chrono', res.displayName);
+      enterAfterLogin();
+    } catch (err) {
+      showLoginError(err && err.message ? err.message : 'Error al procesar Cuenta Chrono.');
+    } finally {
+      if (btnChronoSignin) {
+        btnChronoSignin.disabled = false;
+        btnChronoSignin.innerHTML = origSigninHtml;
+      }
+      if (btnChronoRegister) {
+        btnChronoRegister.disabled = false;
+        btnChronoRegister.innerHTML = origRegHtml;
+      }
+    }
+  }
+
+  if (btnChronoSignin) {
+    btnChronoSignin.addEventListener('click', () => handleChronoAuthAction('login'));
+  }
+  if (btnChronoRegister) {
+    btnChronoRegister.addEventListener('click', () => handleChronoAuthAction('register'));
+  }
+  if (chronoPasswordInput) {
+    chronoPasswordInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleChronoAuthAction('login');
+      }
+    });
+  }
+
   const btnLoginGuest = document.getElementById('btn-login-guest');
   if (btnLoginGuest) {
     btnLoginGuest.addEventListener('click', () => {
@@ -4785,6 +4872,7 @@
         await window.chronoAuth.logout();
       }
       clearSession();
+      showChronoSubpanel(false);
       showLoginError('');
       showScreen(screenLogin);
       gameState = 'login';
@@ -5433,6 +5521,9 @@
 
   // Teclado
   window.addEventListener('keydown', (e) => {
+    const tag = (e.target && e.target.tagName) ? e.target.tagName.toUpperCase() : '';
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
     window.chronoAudio.init();
 
     if (e.code in keys) {

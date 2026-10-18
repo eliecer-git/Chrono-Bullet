@@ -2926,6 +2926,88 @@ body.is-touch .game-modal { background: rgba(4, 6, 10, 0.88); }
   color: var(--text-muted);
 }
 
+.login-options.hidden,
+.chrono-account-panel.hidden {
+  display: none;
+}
+
+.chrono-account-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 18px;
+  text-align: left;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-dim);
+  border-radius: 8px;
+  padding: 16px 16px 14px;
+}
+
+.chrono-panel-title {
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+  letter-spacing: 2px;
+  color: var(--cyan);
+  text-align: center;
+  margin-bottom: 2px;
+}
+
+.chrono-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.chrono-field-label {
+  font-family: var(--font-display);
+  font-size: 0.62rem;
+  letter-spacing: 1.5px;
+  color: var(--text-muted);
+}
+
+.chrono-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: rgba(6, 8, 13, 0.78);
+  border: 1px solid rgba(224, 242, 254, 0.28);
+  border-radius: 6px;
+  padding: 10px 12px;
+  color: #fff;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.chrono-input:focus {
+  border-color: var(--cyan);
+  box-shadow: 0 0 12px var(--cyan-glow);
+}
+
+.chrono-panel-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.chrono-back-link {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-family: var(--font-display);
+  font-size: 0.66rem;
+  letter-spacing: 1.5px;
+  padding: 6px 4px 2px;
+  cursor: pointer;
+  text-align: center;
+  transition: color 0.2s;
+}
+
+.chrono-back-link:hover {
+  color: var(--cyan);
+}
+
 .login-error {
   font-size: 0.85rem;
   color: #fda4af;

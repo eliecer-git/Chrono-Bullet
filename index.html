@@ -25,17 +25,39 @@
         </h1>
         <p class="subtitle login-subtitle">Elige cómo quieres entrar.</p>
 
-        <div class="login-options">
+        <div id="login-main-options" class="login-options">
           <button id="btn-login-google" class="cyber-btn secondary-btn login-btn">
             <span class="btn-icon">G</span> ENTRAR CON GOOGLE
           </button>
-          <button id="btn-login-chrono" class="cyber-btn secondary-btn login-btn" disabled>
+          <button id="btn-login-chrono" class="cyber-btn secondary-btn login-btn">
             <span class="btn-icon">⏱</span> CUENTA CHRONO
-            <span class="login-soon">PRÓXIMAMENTE</span>
           </button>
           <button id="btn-login-guest" class="cyber-btn primary-btn login-btn pulse-glow">
             <span class="btn-icon">👤</span> ENTRAR COMO INVITADO
           </button>
+        </div>
+
+        <div id="chrono-account-panel" class="chrono-account-panel hidden">
+          <div class="chrono-panel-title">⏱ CUENTA CHRONO</div>
+          <label class="chrono-field">
+            <span class="chrono-field-label">NOMBRE DE USUARIO</span>
+            <input id="chrono-username" type="text" class="chrono-input" maxlength="24" autocomplete="username" placeholder="Ej: piloto_chrono">
+          </label>
+          <label class="chrono-field">
+            <span class="chrono-field-label">CONTRASEÑA</span>
+            <input id="chrono-password" type="password" class="chrono-input" maxlength="64" autocomplete="current-password" placeholder="Mínimo 6 caracteres">
+          </label>
+          <div class="chrono-panel-actions">
+            <button id="btn-chrono-signin" type="button" class="cyber-btn primary-btn login-btn">
+              ▶ INICIAR SESIÓN
+            </button>
+            <button id="btn-chrono-register" type="button" class="cyber-btn secondary-btn login-btn">
+              ✦ CREAR CUENTA NUEVA
+            </button>
+            <button id="btn-chrono-back" type="button" class="chrono-back-link">
+              ← VOLVER A OPCIONES DE ACCESO
+            </button>
+          </div>
         </div>
 
         <p id="login-error-msg" class="login-error hidden"></p>

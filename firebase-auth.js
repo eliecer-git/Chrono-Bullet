@@ -92,6 +92,100 @@
     }
   }
 
+  function validateChronoCredentials(username, password) {
+    const cleanUser = (username || '').trim();
+    const cleanPass = (password || '');
+    if (!cleanUser) {
+      throw new Error('Escribe tu nombre de usuario.');
+    }
+    if (cleanUser.length < 3 || cleanUser.length > 24 || !/^[a-zA-Z0-9_]+$/.test(cleanUser)) {
+      throw new Error('El usuario debe tener entre 3 y 24 caracteres (solo letras, números o _).');
+    }
+    if (!cleanPass || cleanPass.length < 6) {
+      throw new Error('La contraseña debe tener al menos 6 caracteres.');
+    }
+    return {
+      username: cleanUser.toLowerCase(),
+      displayName: cleanUser.toUpperCase(),
+      syntheticEmail: cleanUser.toLowerCase() + '@chrono.local',
+      password: cleanPass
+    };
+  }
+
+  function translateChronoError(err, mode) {
+    const code = (err && err.code) ? String(err.code) : '';
+    if (code === 'auth/email-already-in-use') {
+      return 'Ese nombre de usuario ya está registrado. Elige otro o pulsa INICIAR SESIÓN.';
+    }
+    if (
+      code === 'auth/user-not-found' ||
+      code === 'auth/wrong-password' ||
+      code === 'auth/invalid-credential' ||
+      code === 'auth/invalid-login-credentials'
+    ) {
+      return 'Usuario o contraseña incorrectos. Si es tu primera vez, pulsa CREAR CUENTA.';
+    }
+    if (code === 'auth/weak-password') {
+      return 'La contraseña es muy débil (mínimo 6 caracteres).';
+    }
+    if (code === 'auth/too-many-requests') {
+      return 'Demasiados intentos seguidos. Espera un momento e inténtalo de nuevo.';
+    }
+    if (code === 'auth/network-request-failed') {
+      return 'Error de red. Verifica tu conexión a internet.';
+    }
+    return (err && err.message)
+      ? err.message
+      : (mode === 'register' ? 'No se pudo crear la Cuenta Chrono.' : 'No se pudo iniciar sesión en Cuenta Chrono.');
+  }
+
+  async function loginWithChrono(username, password) {
+    const creds = validateChronoCredentials(username, password);
+    if (!auth || typeof firebase === 'undefined') {
+      throw new Error('El servicio de Firebase no está disponible. Revisa tu conexión a internet.');
+    }
+    try {
+      const res = await auth.signInWithEmailAndPassword(creds.syntheticEmail, creds.password);
+      const user = res.user;
+      return {
+        uid: user.uid,
+        username: creds.username,
+        displayName: creds.displayName,
+        isNewUser: false
+      };
+    } catch (err) {
+      const friendly = new Error(translateChronoError(err, 'login'));
+      friendly.code = err && err.code ? err.code : 'auth/unknown';
+      throw friendly;
+    }
+  }
+
+  async function registerWithChrono(username, password) {
+    const creds = validateChronoCredentials(username, password);
+    if (!auth || typeof firebase === 'undefined') {
+      throw new Error('El servicio de Firebase no está disponible. Revisa tu conexión a internet.');
+    }
+    try {
+      const res = await auth.createUserWithEmailAndPassword(creds.syntheticEmail, creds.password);
+      const user = res.user;
+      try {
+        if (user && typeof user.updateProfile === 'function') {
+          await user.updateProfile({ displayName: creds.displayName });
+        }
+      } catch (e) {}
+      return {
+        uid: user.uid,
+        username: creds.username,
+        displayName: creds.displayName,
+        isNewUser: true
+      };
+    } catch (err) {
+      const friendly = new Error(translateChronoError(err, 'register'));
+      friendly.code = err && err.code ? err.code : 'auth/unknown';
+      throw friendly;
+    }
+  }
+
   async function logout() {
     if (!auth) return;
     try {
@@ -118,6 +212,8 @@
     isAvailable: isAvailable,
     getCurrentUser: getCurrentUser,
     loginWithGoogle: loginWithGoogle,
+    loginWithChrono: loginWithChrono,
+    registerWithChrono: registerWithChrono,
     logout: logout,
     onAuthChange: onAuthChange,
     getDb: function () { return db; }
