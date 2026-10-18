@@ -1201,51 +1201,110 @@
     }
   };
 
-  let playerCoins = 0;
-  try {
-    playerCoins = parseInt(localStorage.getItem('chrono_coins'), 10) || 0;
-  } catch (e) { playerCoins = 0; }
+  function readGuestEconomyFromLocal() {
+    let coins = 0;
+    try { coins = parseInt(localStorage.getItem('chrono_coins'), 10) || 0; } catch (e) {}
 
-  let unlockedWeapons = ['pistol'];
-  try {
-    const savedW = JSON.parse(localStorage.getItem('chrono_unlocked_weapons'));
-    if (Array.isArray(savedW)) unlockedWeapons = savedW;
+    let weapons = ['pistol'];
+    try {
+      const savedW = JSON.parse(localStorage.getItem('chrono_unlocked_weapons'));
+      if (Array.isArray(savedW)) weapons = savedW.slice();
+      if (!weapons.includes('pistol')) weapons.push('pistol');
+    } catch (e) {}
+
+    let startW = 'default';
+    try {
+      const savedEqW = localStorage.getItem('chrono_start_weapon');
+      if (savedEqW) startW = savedEqW;
+    } catch (e) {}
+
+    let skins = ['skin_default'];
+    try {
+      const savedS = JSON.parse(localStorage.getItem('chrono_unlocked_skins'));
+      if (Array.isArray(savedS)) skins = savedS.slice();
+      if (!skins.includes('skin_default')) skins.push('skin_default');
+    } catch (e) {}
+
+    let skin = 'skin_default';
+    try {
+      const savedSkin = localStorage.getItem('chrono_active_skin');
+      if (savedSkin && SKINS_DATA[savedSkin]) skin = savedSkin;
+    } catch (e) {}
+
+    let medkits = 0;
+    try { medkits = parseInt(localStorage.getItem('chrono_hard_medkits'), 10) || 0; } catch (e) {}
+
+    return {
+      coins: coins,
+      unlockedWeapons: weapons,
+      equippedStartWeapon: startW,
+      unlockedSkins: skins,
+      activeSkin: skin,
+      hardMedkitsReserve: medkits
+    };
+  }
+
+  function writeGuestEconomyToLocal(state) {
+    try {
+      localStorage.setItem('chrono_coins', state.coins.toString());
+      localStorage.setItem('chrono_unlocked_weapons', JSON.stringify(state.unlockedWeapons));
+      localStorage.setItem('chrono_start_weapon', state.equippedStartWeapon);
+      localStorage.setItem('chrono_unlocked_skins', JSON.stringify(state.unlockedSkins));
+      localStorage.setItem('chrono_active_skin', state.activeSkin);
+      localStorage.setItem('chrono_hard_medkits', state.hardMedkitsReserve.toString());
+    } catch (e) {}
+  }
+
+  const initialGuestEconomy = readGuestEconomyFromLocal();
+  let playerCoins = initialGuestEconomy.coins;
+  let unlockedWeapons = initialGuestEconomy.unlockedWeapons;
+  let equippedStartWeapon = initialGuestEconomy.equippedStartWeapon;
+  let unlockedSkins = initialGuestEconomy.unlockedSkins;
+  let activeSkin = initialGuestEconomy.activeSkin;
+  let hardMedkitsReserve = initialGuestEconomy.hardMedkitsReserve;
+
+  function getCurrentEconomyObject() {
+    return {
+      coins: playerCoins,
+      unlockedWeapons: unlockedWeapons.slice(),
+      equippedStartWeapon: equippedStartWeapon,
+      unlockedSkins: unlockedSkins.slice(),
+      activeSkin: activeSkin,
+      hardMedkitsReserve: hardMedkitsReserve
+    };
+  }
+
+  function applyEconomyObject(state) {
+    if (!state) return;
+    playerCoins = Math.max(0, parseInt(state.coins, 10) || 0);
+    unlockedWeapons = Array.isArray(state.unlockedWeapons) ? state.unlockedWeapons.slice() : ['pistol'];
     if (!unlockedWeapons.includes('pistol')) unlockedWeapons.push('pistol');
-  } catch (e) {}
-
-  let equippedStartWeapon = 'default'; // 'default' o tipo de arma
-  try {
-    const savedEqW = localStorage.getItem('chrono_start_weapon');
-    if (savedEqW) equippedStartWeapon = savedEqW;
-  } catch (e) {}
-
-  let unlockedSkins = ['skin_default'];
-  try {
-    const savedS = JSON.parse(localStorage.getItem('chrono_unlocked_skins'));
-    if (Array.isArray(savedS)) unlockedSkins = savedS;
+    equippedStartWeapon = state.equippedStartWeapon || 'default';
+    unlockedSkins = Array.isArray(state.unlockedSkins) ? state.unlockedSkins.slice() : ['skin_default'];
     if (!unlockedSkins.includes('skin_default')) unlockedSkins.push('skin_default');
-  } catch (e) {}
-
-  let activeSkin = 'skin_default';
-  try {
-    const savedSkin = localStorage.getItem('chrono_active_skin');
-    if (savedSkin && SKINS_DATA[savedSkin]) activeSkin = savedSkin;
-  } catch (e) {}
-
-  let hardMedkitsReserve = 0;
-  try {
-    hardMedkitsReserve = parseInt(localStorage.getItem('chrono_hard_medkits'), 10) || 0;
-  } catch (e) { hardMedkitsReserve = 0; }
+    activeSkin = (state.activeSkin && SKINS_DATA[state.activeSkin]) ? state.activeSkin : 'skin_default';
+    hardMedkitsReserve = Math.max(0, parseInt(state.hardMedkitsReserve, 10) || 0);
+    updateCoinDisplays();
+    if (player && player.viewWeaponGroup) {
+      player.updateViewWeaponModel();
+    }
+  }
 
   function saveEconomyState() {
+    let sessType = null;
+    let sessUid = null;
     try {
-      localStorage.setItem('chrono_coins', playerCoins.toString());
-      localStorage.setItem('chrono_unlocked_weapons', JSON.stringify(unlockedWeapons));
-      localStorage.setItem('chrono_start_weapon', equippedStartWeapon);
-      localStorage.setItem('chrono_unlocked_skins', JSON.stringify(unlockedSkins));
-      localStorage.setItem('chrono_active_skin', activeSkin);
-      localStorage.setItem('chrono_hard_medkits', hardMedkitsReserve.toString());
+      sessType = localStorage.getItem('chrono_session');
+      sessUid = localStorage.getItem('chrono_session_uid');
     } catch (e) {}
+
+    if ((sessType === 'google' || sessType === 'chrono') && sessUid && window.chronoAuth && typeof window.chronoAuth.saveCloudProfile === 'function') {
+      // En cuenta (Google o Chrono): guarda en Firestore sin tocar el progreso local de invitado
+      window.chronoAuth.saveCloudProfile(sessUid, getCurrentEconomyObject());
+    } else {
+      // En modo Invitado: guarda en el localStorage de este dispositivo
+      writeGuestEconomyToLocal(getCurrentEconomyObject());
+    }
     updateCoinDisplays();
   }
 
@@ -4665,9 +4724,10 @@
   });
 
   // ========================================================
-  // SESIÓN DE USUARIO (Fase 1 y 2: Invitado, Google y cerrar sesión)
+  // SESIÓN DE USUARIO (Invitado, Google, Cuenta Chrono y nube)
   // El progreso de invitado vive en las claves chrono_* del localStorage de este
-  // dispositivo. Aquí se guarda el tipo de sesión y el nombre visible.
+  // dispositivo. Las cuentas (Google / Chrono) guardan en Firestore users/{uid}
+  // sin pisar el progreso local de invitado (Opción A).
   // ========================================================
   const loginErrorMsg = document.getElementById('login-error-msg');
 
@@ -4690,13 +4750,22 @@
     try { return localStorage.getItem('chrono_session_name') || ''; } catch (e) { return ''; }
   }
 
-  function setSession(type, displayName) {
+  function getSessionUid() {
+    try { return localStorage.getItem('chrono_session_uid') || ''; } catch (e) { return ''; }
+  }
+
+  function setSession(type, displayName, uid) {
     try {
       localStorage.setItem('chrono_session', type);
       if (displayName) {
         localStorage.setItem('chrono_session_name', displayName);
       } else {
         localStorage.removeItem('chrono_session_name');
+      }
+      if (uid) {
+        localStorage.setItem('chrono_session_uid', uid);
+      } else {
+        localStorage.removeItem('chrono_session_uid');
       }
     } catch (e) {}
     updateSessionLabel();
@@ -4706,6 +4775,7 @@
     try {
       localStorage.removeItem('chrono_session');
       localStorage.removeItem('chrono_session_name');
+      localStorage.removeItem('chrono_session_uid');
     } catch (e) {}
   }
 
@@ -4753,6 +4823,7 @@
     if (chronoPasswordInput) chronoPasswordInput.value = '';
     window.chronoAudio.init();
     updateSessionLabel();
+    updateCoinDisplays();
     if (hasSeenIntroNow()) {
       showScreen(screenMainMenu);
       gameState = 'menu';
@@ -4774,8 +4845,14 @@
       btnLoginGoogle.disabled = true;
       btnLoginGoogle.innerHTML = '<span class="btn-icon">G</span> CONECTANDO...';
       try {
+        const guestSnapshot = readGuestEconomyFromLocal();
         const res = await window.chronoAuth.loginWithGoogle();
-        setSession('google', res.displayName);
+        const cloudEconomy = await window.chronoAuth.loadOrInitCloudProfile(res.uid, guestSnapshot, {
+          provider: 'google',
+          displayName: res.displayName
+        });
+        setSession('google', res.displayName, res.uid);
+        applyEconomyObject(cloudEconomy);
         enterAfterLogin();
       } catch (err) {
         showLoginError(err && err.message ? err.message : 'No se pudo iniciar sesión con Google.');
@@ -4823,10 +4900,16 @@
     }
 
     try {
+      const guestSnapshot = readGuestEconomyFromLocal();
       const res = mode === 'register'
         ? await window.chronoAuth.registerWithChrono(username, password)
         : await window.chronoAuth.loginWithChrono(username, password);
-      setSession('chrono', res.displayName);
+      const cloudEconomy = await window.chronoAuth.loadOrInitCloudProfile(res.uid, guestSnapshot, {
+        provider: 'chrono',
+        displayName: res.displayName
+      });
+      setSession('chrono', res.displayName, res.uid);
+      applyEconomyObject(cloudEconomy);
       enterAfterLogin();
     } catch (err) {
       showLoginError(err && err.message ? err.message : 'Error al procesar Cuenta Chrono.');
@@ -4860,7 +4943,8 @@
   const btnLoginGuest = document.getElementById('btn-login-guest');
   if (btnLoginGuest) {
     btnLoginGuest.addEventListener('click', () => {
-      setSession('guest');
+      setSession('guest', '', '');
+      applyEconomyObject(readGuestEconomyFromLocal());
       enterAfterLogin();
     });
   }
@@ -4872,6 +4956,8 @@
         await window.chronoAuth.logout();
       }
       clearSession();
+      // Al salir de la cuenta, restauramos en memoria los datos locales de invitado del dispositivo
+      applyEconomyObject(readGuestEconomyFromLocal());
       showChronoSubpanel(false);
       showLoginError('');
       showScreen(screenLogin);
@@ -5834,7 +5920,27 @@
 
   applyGlobalTheme(currentGlobalTheme);
 
-  if (!getSession()) {
+  const bootSessionType = getSession();
+  const bootSessionUid = getSessionUid();
+  if ((bootSessionType === 'google' || bootSessionType === 'chrono') && bootSessionUid && window.chronoAuth) {
+    const cachedCloud = window.chronoAuth.readCloudCache(bootSessionUid);
+    if (cachedCloud) {
+      applyEconomyObject(cachedCloud);
+    }
+    window.chronoAuth.onAuthChange(async (user) => {
+      const currentType = getSession();
+      if (!user || (currentType !== 'google' && currentType !== 'chrono')) return;
+      const freshCloud = await window.chronoAuth.loadOrInitCloudProfile(user.uid, readGuestEconomyFromLocal(), {
+        provider: currentType,
+        displayName: getSessionName()
+      });
+      if (getSession() === currentType) {
+        applyEconomyObject(freshCloud);
+      }
+    });
+  }
+
+  if (!bootSessionType) {
     // Sin sesión: primero elegir cómo entrar (Google / Cuenta Chrono / Invitado)
     showScreen(screenLogin);
     gameState = 'login';

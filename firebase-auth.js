@@ -186,6 +186,109 @@
     }
   }
 
+  function sanitizeEconomyData(raw) {
+    const src = raw || {};
+    const coins = Math.max(0, parseInt(src.coins, 10) || 0);
+    const weapons = Array.isArray(src.unlockedWeapons)
+      ? src.unlockedWeapons.filter(function (w) { return typeof w === 'string'; })
+      : ['pistol'];
+    if (!weapons.includes('pistol')) weapons.push('pistol');
+
+    const startWeapon = (typeof src.equippedStartWeapon === 'string' && src.equippedStartWeapon)
+      ? src.equippedStartWeapon
+      : 'default';
+
+    const skins = Array.isArray(src.unlockedSkins)
+      ? src.unlockedSkins.filter(function (s) { return typeof s === 'string'; })
+      : ['skin_default'];
+    if (!skins.includes('skin_default')) skins.push('skin_default');
+
+    const activeSkin = (typeof src.activeSkin === 'string' && src.activeSkin)
+      ? src.activeSkin
+      : 'skin_default';
+
+    const hardMedkits = Math.max(0, parseInt(src.hardMedkitsReserve, 10) || 0);
+
+    return {
+      coins: coins,
+      unlockedWeapons: weapons,
+      equippedStartWeapon: startWeapon,
+      unlockedSkins: skins,
+      activeSkin: activeSkin,
+      hardMedkitsReserve: hardMedkits
+    };
+  }
+
+  function writeCloudCache(uid, state) {
+    if (!uid) return;
+    try {
+      localStorage.setItem('chrono_cloud_cache_' + uid, JSON.stringify(sanitizeEconomyData(state)));
+    } catch (e) {}
+  }
+
+  function readCloudCache(uid) {
+    if (!uid) return null;
+    try {
+      const raw = localStorage.getItem('chrono_cloud_cache_' + uid);
+      if (!raw) return null;
+      return sanitizeEconomyData(JSON.parse(raw));
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Carga el progreso de Firestore users/{uid}. Si el documento no existe todavía
+  // (cuenta recién creada), inicializa la nube con el progreso local que tenía como invitado.
+  async function loadOrInitCloudProfile(uid, initialGuestData, meta) {
+    const fallbackState = sanitizeEconomyData(initialGuestData);
+    if (!uid || !db) {
+      return readCloudCache(uid) || fallbackState;
+    }
+    try {
+      const docRef = db.collection('users').doc(uid);
+      const snap = await docRef.get();
+      if (snap.exists) {
+        const cloudState = sanitizeEconomyData(snap.data());
+        writeCloudCache(uid, cloudState);
+        return cloudState;
+      } else {
+        const payload = Object.assign({}, fallbackState, {
+          provider: (meta && meta.provider) || 'unknown',
+          displayName: (meta && meta.displayName) || 'JUGADOR',
+          updatedAt: (firebase.firestore && firebase.firestore.FieldValue)
+            ? firebase.firestore.FieldValue.serverTimestamp()
+            : Date.now()
+        });
+        await docRef.set(payload, { merge: true });
+        writeCloudCache(uid, fallbackState);
+        return fallbackState;
+      }
+    } catch (err) {
+      console.warn('[ChronoAuth] No se pudo leer/inicializar Firestore, usando caché local de la cuenta:', err);
+      const cached = readCloudCache(uid);
+      if (cached) return cached;
+      writeCloudCache(uid, fallbackState);
+      return fallbackState;
+    }
+  }
+
+  async function saveCloudProfile(uid, economyData) {
+    if (!uid) return;
+    const clean = sanitizeEconomyData(economyData);
+    writeCloudCache(uid, clean);
+    if (!db) return;
+    try {
+      const payload = Object.assign({}, clean, {
+        updatedAt: (firebase.firestore && firebase.firestore.FieldValue)
+          ? firebase.firestore.FieldValue.serverTimestamp()
+          : Date.now()
+      });
+      await db.collection('users').doc(uid).set(payload, { merge: true });
+    } catch (err) {
+      console.warn('[ChronoAuth] Error al guardar progreso en Firestore:', err);
+    }
+  }
+
   async function logout() {
     if (!auth) return;
     try {
@@ -214,6 +317,9 @@
     loginWithGoogle: loginWithGoogle,
     loginWithChrono: loginWithChrono,
     registerWithChrono: registerWithChrono,
+    loadOrInitCloudProfile: loadOrInitCloudProfile,
+    saveCloudProfile: saveCloudProfile,
+    readCloudCache: readCloudCache,
     logout: logout,
     onAuthChange: onAuthChange,
     getDb: function () { return db; }
