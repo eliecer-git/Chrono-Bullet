@@ -4804,23 +4804,89 @@
 
   const loginMainOptions = document.getElementById('login-main-options');
   const chronoAccountPanel = document.getElementById('chrono-account-panel');
+  const chronoChoiceView = document.getElementById('chrono-choice-view');
+  const chronoFormView = document.getElementById('chrono-form-view');
+  const chronoFormTitle = document.getElementById('chrono-form-title');
   const chronoUsernameInput = document.getElementById('chrono-username');
   const chronoPasswordInput = document.getElementById('chrono-password');
+  const chronoConfirmField = document.getElementById('chrono-confirm-field');
+  const chronoPasswordConfirmInput = document.getElementById('chrono-password-confirm');
+  const btnChronoGotoLogin = document.getElementById('btn-chrono-goto-login');
+  const btnChronoGotoRegister = document.getElementById('btn-chrono-goto-register');
+  const btnChronoBack = document.getElementById('btn-chrono-back');
+  const btnChronoBackChoice = document.getElementById('btn-chrono-back-choice');
+  const btnChronoSubmit = document.getElementById('btn-chrono-submit');
+
+  let currentChronoFormMode = 'login'; // 'login' | 'register'
+
+  function resetPasswordFieldsAndEyes() {
+    if (chronoPasswordInput) {
+      chronoPasswordInput.value = '';
+      chronoPasswordInput.type = 'password';
+    }
+    if (chronoPasswordConfirmInput) {
+      chronoPasswordConfirmInput.value = '';
+      chronoPasswordConfirmInput.type = 'password';
+    }
+    document.querySelectorAll('.chrono-eye-btn').forEach(btn => {
+      const closedIcon = btn.querySelector('.eye-closed');
+      const openIcon = btn.querySelector('.eye-open');
+      if (closedIcon) closedIcon.classList.remove('hidden');
+      if (openIcon) openIcon.classList.add('hidden');
+    });
+  }
 
   function showChronoSubpanel(open) {
     showLoginError('');
     if (loginMainOptions) loginMainOptions.classList.toggle('hidden', !!open);
     if (chronoAccountPanel) chronoAccountPanel.classList.toggle('hidden', !open);
-    if (open && chronoUsernameInput) {
+    if (chronoChoiceView) chronoChoiceView.classList.remove('hidden');
+    if (chronoFormView) chronoFormView.classList.add('hidden');
+    resetPasswordFieldsAndEyes();
+  }
+
+  function openChronoForm(mode) {
+    currentChronoFormMode = (mode === 'register') ? 'register' : 'login';
+    showLoginError('');
+    resetPasswordFieldsAndEyes();
+    if (chronoChoiceView) chronoChoiceView.classList.add('hidden');
+    if (chronoFormView) chronoFormView.classList.remove('hidden');
+
+    if (currentChronoFormMode === 'register') {
+      if (chronoFormTitle) chronoFormTitle.textContent = '✦ CREAR CUENTA CHRONO';
+      if (chronoConfirmField) chronoConfirmField.classList.remove('hidden');
+      if (btnChronoSubmit) btnChronoSubmit.innerHTML = '✦ CREAR CUENTA';
+    } else {
+      if (chronoFormTitle) chronoFormTitle.textContent = '▶ INICIAR SESIÓN';
+      if (chronoConfirmField) chronoConfirmField.classList.add('hidden');
+      if (btnChronoSubmit) btnChronoSubmit.innerHTML = '▶ ENTRAR';
+    }
+
+    if (chronoUsernameInput) {
       setTimeout(() => { try { chronoUsernameInput.focus(); } catch (e) {} }, 40);
     }
   }
+
+  // Ojito para mostrar / ocultar contraseña
+  document.querySelectorAll('.chrono-eye-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const targetId = btn.getAttribute('data-target');
+      const inputEl = targetId ? document.getElementById(targetId) : null;
+      if (!inputEl) return;
+      const isHiddenNow = inputEl.type === 'password';
+      inputEl.type = isHiddenNow ? 'text' : 'password';
+      const closedIcon = btn.querySelector('.eye-closed');
+      const openIcon = btn.querySelector('.eye-open');
+      if (closedIcon) closedIcon.classList.toggle('hidden', isHiddenNow);
+      if (openIcon) openIcon.classList.toggle('hidden', !isHiddenNow);
+    });
+  });
 
   // Tras iniciar sesión: instrucciones la primera vez, menú las demás
   function enterAfterLogin() {
     showLoginError('');
     showChronoSubpanel(false);
-    if (chronoPasswordInput) chronoPasswordInput.value = '';
     window.chronoAudio.init();
     updateSessionLabel();
     updateCoinDisplays();
@@ -4870,17 +4936,35 @@
     });
   }
 
-  const btnChronoBack = document.getElementById('btn-chrono-back');
+  if (btnChronoGotoLogin) {
+    btnChronoGotoLogin.addEventListener('click', () => {
+      openChronoForm('login');
+    });
+  }
+
+  if (btnChronoGotoRegister) {
+    btnChronoGotoRegister.addEventListener('click', () => {
+      openChronoForm('register');
+    });
+  }
+
   if (btnChronoBack) {
     btnChronoBack.addEventListener('click', () => {
       showChronoSubpanel(false);
     });
   }
 
-  const btnChronoSignin = document.getElementById('btn-chrono-signin');
-  const btnChronoRegister = document.getElementById('btn-chrono-register');
+  if (btnChronoBackChoice) {
+    btnChronoBackChoice.addEventListener('click', () => {
+      showLoginError('');
+      resetPasswordFieldsAndEyes();
+      if (chronoFormView) chronoFormView.classList.add('hidden');
+      if (chronoChoiceView) chronoChoiceView.classList.remove('hidden');
+    });
+  }
 
-  async function handleChronoAuthAction(mode) {
+  async function handleChronoAuthAction() {
+    const mode = currentChronoFormMode;
     showLoginError('');
     if (!window.chronoAuth) {
       showLoginError('El módulo de Firebase no se cargó correctamente.');
@@ -4888,15 +4972,23 @@
     }
     const username = chronoUsernameInput ? chronoUsernameInput.value : '';
     const password = chronoPasswordInput ? chronoPasswordInput.value : '';
+    const confirmPass = chronoPasswordConfirmInput ? chronoPasswordConfirmInput.value : '';
 
-    const activeBtn = mode === 'register' ? btnChronoRegister : btnChronoSignin;
-    const origSigninHtml = btnChronoSignin ? btnChronoSignin.innerHTML : '';
-    const origRegHtml = btnChronoRegister ? btnChronoRegister.innerHTML : '';
+    if (mode === 'register') {
+      if (!confirmPass) {
+        showLoginError('Repite tu contraseña en el campo VERIFICAR CONTRASEÑA.');
+        return;
+      }
+      if (password !== confirmPass) {
+        showLoginError('Las contraseñas no coinciden. Verifica que ambas sean iguales.');
+        return;
+      }
+    }
 
-    if (btnChronoSignin) btnChronoSignin.disabled = true;
-    if (btnChronoRegister) btnChronoRegister.disabled = true;
-    if (activeBtn) {
-      activeBtn.innerHTML = mode === 'register' ? 'CREANDO CUENTA...' : 'VERIFICANDO...';
+    const origSubmitHtml = btnChronoSubmit ? btnChronoSubmit.innerHTML : '';
+    if (btnChronoSubmit) {
+      btnChronoSubmit.disabled = true;
+      btnChronoSubmit.innerHTML = mode === 'register' ? 'CREANDO CUENTA...' : 'VERIFICANDO...';
     }
 
     try {
@@ -4914,28 +5006,29 @@
     } catch (err) {
       showLoginError(err && err.message ? err.message : 'Error al procesar Cuenta Chrono.');
     } finally {
-      if (btnChronoSignin) {
-        btnChronoSignin.disabled = false;
-        btnChronoSignin.innerHTML = origSigninHtml;
-      }
-      if (btnChronoRegister) {
-        btnChronoRegister.disabled = false;
-        btnChronoRegister.innerHTML = origRegHtml;
+      if (btnChronoSubmit) {
+        btnChronoSubmit.disabled = false;
+        btnChronoSubmit.innerHTML = origSubmitHtml;
       }
     }
   }
 
-  if (btnChronoSignin) {
-    btnChronoSignin.addEventListener('click', () => handleChronoAuthAction('login'));
-  }
-  if (btnChronoRegister) {
-    btnChronoRegister.addEventListener('click', () => handleChronoAuthAction('register'));
+  if (btnChronoSubmit) {
+    btnChronoSubmit.addEventListener('click', () => handleChronoAuthAction());
   }
   if (chronoPasswordInput) {
     chronoPasswordInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
+      if (e.key === 'Enter' && currentChronoFormMode === 'login') {
         e.preventDefault();
-        handleChronoAuthAction('login');
+        handleChronoAuthAction();
+      }
+    });
+  }
+  if (chronoPasswordConfirmInput) {
+    chronoPasswordConfirmInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && currentChronoFormMode === 'register') {
+        e.preventDefault();
+        handleChronoAuthAction();
       }
     });
   }

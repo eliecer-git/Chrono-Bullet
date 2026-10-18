@@ -2927,29 +2927,44 @@ body.is-touch .game-modal { background: rgba(4, 6, 10, 0.88); }
 }
 
 .login-options.hidden,
-.chrono-account-panel.hidden {
+.chrono-account-panel.hidden,
+.chrono-subview.hidden,
+.chrono-field.hidden,
+.eye-icon.hidden {
   display: none;
 }
 
 .chrono-account-panel {
   display: flex;
   flex-direction: column;
-  gap: 12px;
   margin-bottom: 18px;
   text-align: left;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--border-dim);
   border-radius: 8px;
-  padding: 16px 16px 14px;
+  padding: 18px 16px 14px;
+}
+
+.chrono-subview {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .chrono-panel-title {
   font-family: var(--font-display);
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   letter-spacing: 2px;
   color: var(--cyan);
   text-align: center;
   margin-bottom: 2px;
+}
+
+.chrono-panel-sub {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  text-align: center;
+  margin: -4px 0 4px;
 }
 
 .chrono-field {
@@ -2982,6 +2997,45 @@ body.is-touch .game-modal { background: rgba(4, 6, 10, 0.88); }
 .chrono-input:focus {
   border-color: var(--cyan);
   box-shadow: 0 0 12px var(--cyan-glow);
+}
+
+.chrono-pass-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.chrono-pass-input {
+  padding-right: 42px;
+}
+
+.chrono-pass-input::-ms-reveal,
+.chrono-pass-input::-ms-clear {
+  display: none;
+}
+
+.chrono-eye-btn {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.2s, background 0.2s;
+}
+
+.chrono-eye-btn:hover {
+  color: var(--cyan);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .chrono-panel-actions {
