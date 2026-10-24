@@ -5045,9 +5045,6 @@
   const btnLogout = document.getElementById('btn-logout');
   if (btnLogout) {
     btnLogout.addEventListener('click', async () => {
-      if (window.chronoAuth && typeof window.chronoAuth.logout === 'function') {
-        await window.chronoAuth.logout();
-      }
       clearSession();
       // Al salir de la cuenta, restauramos en memoria los datos locales de invitado del dispositivo
       applyEconomyObject(readGuestEconomyFromLocal());
@@ -5055,6 +5052,9 @@
       showLoginError('');
       showScreen(screenLogin);
       gameState = 'login';
+      if (window.chronoAuth && typeof window.chronoAuth.logout === 'function') {
+        try { await window.chronoAuth.logout(); } catch (e) {}
+      }
     });
   }
 

@@ -25,7 +25,12 @@
         ? firebase.app()
         : firebase.initializeApp(firebaseConfig);
       if (firebase.auth) auth = firebase.auth();
-      if (firebase.firestore) db = firebase.firestore();
+      if (firebase.firestore) {
+        db = firebase.firestore();
+        try {
+          db.settings({ experimentalAutoDetectLongPolling: true, merge: true });
+        } catch (e) {}
+      }
     }
   } catch (err) {
     console.warn('[ChronoAuth] No se pudo inicializar Firebase:', err);
@@ -237,6 +242,21 @@
     }
   }
 
+  function withTimeout(promise, ms) {
+    return new Promise(function (resolve, reject) {
+      const timer = setTimeout(function () {
+        reject(new Error('Tiempo de espera agotado en Firestore'));
+      }, ms);
+      promise.then(function (val) {
+        clearTimeout(timer);
+        resolve(val);
+      }, function (err) {
+        clearTimeout(timer);
+        reject(err);
+      });
+    });
+  }
+
   // Carga el progreso de Firestore users/{uid}. Si el documento no existe todavía
   // (cuenta recién creada), inicializa la nube con el progreso local que tenía como invitado.
   async function loadOrInitCloudProfile(uid, initialGuestData, meta) {
@@ -246,7 +266,7 @@
     }
     try {
       const docRef = db.collection('users').doc(uid);
-      const snap = await docRef.get();
+      const snap = await withTimeout(docRef.get(), 2500);
       if (snap.exists) {
         const cloudState = sanitizeEconomyData(snap.data());
         writeCloudCache(uid, cloudState);
@@ -259,12 +279,11 @@
             ? firebase.firestore.FieldValue.serverTimestamp()
             : Date.now()
         });
-        await docRef.set(payload, { merge: true });
         writeCloudCache(uid, fallbackState);
+        docRef.set(payload, { merge: true }).catch(function () {});
         return fallbackState;
       }
     } catch (err) {
-      console.warn('[ChronoAuth] No se pudo leer/inicializar Firestore, usando caché local de la cuenta:', err);
       const cached = readCloudCache(uid);
       if (cached) return cached;
       writeCloudCache(uid, fallbackState);
