@@ -3137,12 +3137,120 @@
   }
 
   // ========================================================
-  // 7. CLASE BULLET 3D (PROYECTILES FLOTANTES CON LUZ Y ESTELA)
+  // 7. CLASE BULLET 3D (PROYECTILES FLOTANTES CON ESTELA Y FANTASMAS CRONALES)
+  // Geometrías y materiales compartidos (creados una sola vez por tipo/color, <=50 tris, 0 luces)
   // ========================================================
+  const _bulletUpAxis = new THREE.Vector3(0, 1, 0);
+  let _bulletSharedGeos = null;
+  const _bulletSharedMats = new Map();
+
+  function getBulletSharedGeos() {
+    if (_bulletSharedGeos) return _bulletSharedGeos;
+
+    // Helper: cuerpo de revolución a lo largo de +Y (dirección de avance de la bala)
+    function latheBulletY(points, radialSegs) {
+      const vecs = points.map(p => new THREE.Vector2(p[0], p[1]));
+      return new THREE.LatheGeometry(vecs, radialSegs);
+    }
+
+    // 1. PISTOL: Bala corta con punta redondeada + estela corta (~49 triángulos en total)
+    const pistolCore = latheBulletY([
+      [0.044, -0.09],
+      [0.046,  0.03],
+      [0.032,  0.085],
+      [0.000,  0.12]
+    ], 6); // 18 tris
+
+    const pistolHalo = latheBulletY([
+      [0.062, -0.10],
+      [0.064,  0.03],
+      [0.000,  0.135]
+    ], 5); // 10 tris
+
+    const pistolTrail = latheBulletY([
+      [0.000, -0.44],
+      [0.048, -0.09]
+    ], 5); // 5 tris
+
+    const pistolGhost = latheBulletY([
+      [0.038, -0.07],
+      [0.040,  0.02],
+      [0.000,  0.10]
+    ], 4); // 8 tris por fantasma (x2 = 16 tris) -> 18 + 10 + 5 + 16 = 49 tris total
+
+    // 2. RIFLE: Bala alargada con punta afilada + estela media (~49 triángulos en total)
+    const rifleCore = latheBulletY([
+      [0.034, -0.16],
+      [0.036,  0.04],
+      [0.000,  0.22]
+    ], 6); // 18 tris
+
+    const rifleHalo = latheBulletY([
+      [0.050, -0.17],
+      [0.052,  0.04],
+      [0.000,  0.24]
+    ], 5); // 10 tris
+
+    const rifleTrail = latheBulletY([
+      [0.000, -0.95],
+      [0.040, -0.16]
+    ], 5); // 5 tris
+
+    const rifleGhost = latheBulletY([
+      [0.030, -0.13],
+      [0.032,  0.03],
+      [0.000,  0.19]
+    ], 4); // 8 tris por fantasma (x2 = 16 tris) -> 18 + 10 + 5 + 16 = 49 tris total
+
+    // Geometrías compartidas para las demás balas (pendientes de rediseñar en el siguiente paso)
+    const legacyPlasmaCore = new THREE.SphereGeometry(0.35 * 0.75, 8, 8);
+    const legacyPlasmaHalo = new THREE.SphereGeometry(0.35 * 1.35, 8, 8);
+    const legacyStdCore = new THREE.CylinderGeometry(0.16 * 0.75, 0.16 * 0.75, 0.42, 6);
+    const legacyStdHalo = new THREE.CylinderGeometry(0.16 * 1.45, 0.16 * 1.45, 0.52, 6);
+    const legacyShotgunCore = new THREE.CylinderGeometry(0.12 * 0.75, 0.12 * 0.75, 0.42, 6);
+    const legacyShotgunHalo = new THREE.CylinderGeometry(0.12 * 1.45, 0.12 * 1.45, 0.52, 6);
+
+    _bulletSharedGeos = {
+      pistolCore,
+      pistolHalo,
+      pistolTrail,
+      pistolGhost,
+      rifleCore,
+      rifleHalo,
+      rifleTrail,
+      rifleGhost,
+      legacyPlasmaCore,
+      legacyPlasmaHalo,
+      legacyStdCore,
+      legacyStdHalo,
+      legacyShotgunCore,
+      legacyShotgunHalo
+    };
+    return _bulletSharedGeos;
+  }
+
+  function getBulletSharedMat(hexColor, opacity = 1.0) {
+    const opKey = Math.round(opacity * 100);
+    const key = `${hexColor}_${opKey}`;
+    if (_bulletSharedMats.has(key)) {
+      return _bulletSharedMats.get(key);
+    }
+    const isTransparent = opKey < 100;
+    const mat = new THREE.MeshBasicMaterial({
+      color: hexColor,
+      transparent: isTransparent,
+      opacity: opacity,
+      depthWrite: !isTransparent
+    });
+    _bulletSharedMats.set(key, mat);
+    return mat;
+  }
+
   class Bullet3D {
     constructor(pos, dir, speed, isEnemy, weaponType = 'pistol', hexColor = 0x00f0ff) {
       this.position = pos.clone();
       this.velocity = dir.clone().multiplyScalar(speed);
+      this.speed = speed;
       this.isEnemy = isEnemy;
       this.weaponType = weaponType;
       this.hexColor = hexColor;
@@ -3150,32 +3258,53 @@
       this.lifeTime = weaponType === 'sniper' ? 1.8 : 2.5;
       this.damage = (weaponType === 'sniper' || weaponType === 'plasma') ? 2 : 1;
       this.hitEnemies = [];
+      this.travelDist = 0;
+      this.ghostMeshes = null;
+      this.ghostBaseSpacing = 0.22;
 
-      // Malla 3D de la bala con núcleo blanco puro hiper-brillante y halo de plasma exterior
+      const geos = getBulletSharedGeos();
+      const whiteMat = getBulletSharedMat(0xffffff, 1.0);
+
+      // Malla 3D de la bala (sin luces por bala; comparte geometrías y materiales)
       this.mesh = new THREE.Group();
 
-      if (weaponType === 'plasma') {
-        const coreGeo = new THREE.SphereGeometry(this.radius * 0.75, 10, 10);
-        const coreMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-        const coreMesh = new THREE.Mesh(coreGeo, coreMat);
-        this.mesh.add(coreMesh);
+      if (!isEnemy && (weaponType === 'pistol' || weaponType === 'rifle')) {
+        const isRifle = (weaponType === 'rifle');
+        const coreGeo = isRifle ? geos.rifleCore : geos.pistolCore;
+        const haloGeo = isRifle ? geos.rifleHalo : geos.pistolHalo;
+        const trailGeo = isRifle ? geos.rifleTrail : geos.pistolTrail;
+        const ghostGeo = isRifle ? geos.rifleGhost : geos.pistolGhost;
 
-        const haloGeo = new THREE.SphereGeometry(this.radius * 1.35, 10, 10);
-        const haloMat = new THREE.MeshBasicMaterial({ color: hexColor, transparent: true, opacity: 0.55 });
-        const haloMesh = new THREE.Mesh(haloGeo, haloMat);
-        this.mesh.add(haloMesh);
+        // 1. Núcleo brillante blanco + recubrimiento energético del color de la skin/tema
+        const coreMesh = new THREE.Mesh(coreGeo, whiteMat);
+        const haloMesh = new THREE.Mesh(haloGeo, getBulletSharedMat(hexColor, 0.58));
+        // 2. Estela detrás de la bala (corta en pistol, media en rifle)
+        const trailMesh = new THREE.Mesh(trailGeo, getBulletSharedMat(hexColor, 0.32));
+        this.mesh.add(coreMesh, haloMesh, trailMesh);
+
+        // 3. Estela de "fantasmas" cronales (2 copias transparentes detrás, solo visuales)
+        const ghost1 = new THREE.Mesh(ghostGeo, getBulletSharedMat(hexColor, 0.40));
+        const ghost2 = new THREE.Mesh(ghostGeo, getBulletSharedMat(hexColor, 0.20));
+        ghost1.scale.setScalar(0.92);
+        ghost2.scale.setScalar(0.80);
+        ghost1.position.set(0, -0.01, 0);
+        ghost2.position.set(0, -0.02, 0);
+        this.mesh.add(ghost1, ghost2);
+
+        this.ghostMeshes = [ghost1, ghost2];
+        this.ghostBaseSpacing = isRifle ? 0.34 : 0.22;
+        this.mesh.quaternion.setFromUnitVectors(_bulletUpAxis, dir);
+
+      } else if (weaponType === 'plasma') {
+        const coreMesh = new THREE.Mesh(geos.legacyPlasmaCore, whiteMat);
+        const haloMesh = new THREE.Mesh(geos.legacyPlasmaHalo, getBulletSharedMat(hexColor, 0.55));
+        this.mesh.add(coreMesh, haloMesh);
       } else {
-        const coreGeo = new THREE.CylinderGeometry(this.radius * 0.75, this.radius * 0.75, 0.42, 6);
-        const coreMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-        const coreMesh = new THREE.Mesh(coreGeo, coreMat);
-        this.mesh.add(coreMesh);
-
-        const haloGeo = new THREE.CylinderGeometry(this.radius * 1.45, this.radius * 1.45, 0.52, 6);
-        const haloMat = new THREE.MeshBasicMaterial({ color: hexColor, transparent: true, opacity: 0.5 });
-        const haloMesh = new THREE.Mesh(haloGeo, haloMat);
-        this.mesh.add(haloMesh);
-
-        this.mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+        const isShotgun = (weaponType === 'shotgun');
+        const coreMesh = new THREE.Mesh(isShotgun ? geos.legacyShotgunCore : geos.legacyStdCore, whiteMat);
+        const haloMesh = new THREE.Mesh(isShotgun ? geos.legacyShotgunHalo : geos.legacyStdHalo, getBulletSharedMat(hexColor, 0.50));
+        this.mesh.add(coreMesh, haloMesh);
+        this.mesh.quaternion.setFromUnitVectors(_bulletUpAxis, dir);
       }
 
       this.mesh.position.copy(this.position);
@@ -3189,8 +3318,25 @@
       this.lifeTime -= scaledDt;
 
       this.position.addScaledVector(this.velocity, scaledDt);
+      this.travelDist += this.speed * scaledDt;
       this.mesh.position.copy(this.position);
-      if (this.light) this.light.position.copy(this.position);
+
+      // Actualizar estela de fantasmas cronales (solo visuales, siempre detrás en -Y local = dirección contraria a velocity)
+      if (this.ghostMeshes) {
+        const slowFactor = Math.max(0, Math.min(1, 1.0 - timeScale));
+        // En cámara lenta (4 %) se despliegan y ven claramente; a velocidad normal (100 %) se contraen
+        const slowExpand = 0.28 + 0.72 * slowFactor;
+        const showGhosts = this.travelDist > 0.05;
+        for (let i = 0; i < this.ghostMeshes.length; i++) {
+          const g = this.ghostMeshes[i];
+          g.visible = showGhosts;
+          if (showGhosts) {
+            const desiredBack = this.ghostBaseSpacing * (i + 1) * slowExpand;
+            const maxAllowedBack = this.travelDist * (i === 0 ? 0.45 : 0.85);
+            g.position.y = -Math.min(desiredBack, maxAllowedBack);
+          }
+        }
+      }
 
       // Colisión de bala contra muros 3D
       for (const box of mapColliders) {
