@@ -1455,6 +1455,213 @@
   }
 
   // ========================================================
+  // 4.4 CARGADOR Y CACHÉ DE MODELOS 3D .GLB (GLTF + DRACO)
+  // ========================================================
+  const WEAPON_GLB_CONFIG = {
+    pistol: {
+      url: 'modelos/pistola.glb',
+      targetLength: 0.40,
+      rotX: 0,
+      rotY: -Math.PI / 2,
+      rotZ: 0,
+      offsetX: 0.0,
+      offsetY: -0.155,
+      offsetZ: -0.085
+    }
+  };
+
+  const weaponGLBCache = new Map();
+  let weaponModelsReady = false;
+  let weaponModelsPreloadPromise = null;
+
+  function preloadWeaponGLBModels() {
+    if (weaponModelsPreloadPromise) return weaponModelsPreloadPromise;
+
+    const btnStartGame = document.getElementById('btn-start-game');
+    const origStartHtml = btnStartGame ? btnStartGame.innerHTML : '';
+    if (btnStartGame) {
+      btnStartGame.disabled = true;
+      btnStartGame.innerHTML = '<span class="btn-icon">⏳</span> CARGANDO ARMAS 3D...';
+    }
+
+    if (typeof THREE.GLTFLoader === 'undefined') {
+      console.warn('GLTFLoader no disponible; usando modelos procedurales de respaldo.');
+      weaponModelsReady = true;
+      if (btnStartGame) {
+        btnStartGame.disabled = false;
+        btnStartGame.innerHTML = origStartHtml;
+      }
+      weaponModelsPreloadPromise = Promise.resolve();
+      return weaponModelsPreloadPromise;
+    }
+
+    const gltfLoader = new THREE.GLTFLoader();
+    if (typeof THREE.DRACOLoader !== 'undefined') {
+      const dracoLoader = new THREE.DRACOLoader();
+      dracoLoader.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/libs/draco/');
+      gltfLoader.setDRACOLoader(dracoLoader);
+    }
+
+    const entries = Object.entries(WEAPON_GLB_CONFIG);
+    const loadPromises = entries.map(([weaponType, cfg]) => {
+      return new Promise((resolve) => {
+        gltfLoader.load(
+          cfg.url,
+          (gltf) => {
+            try {
+              const sceneRoot = gltf.scene || (gltf.scenes && gltf.scenes[0]);
+              if (!sceneRoot) {
+                resolve(false);
+                return;
+              }
+              sceneRoot.updateMatrixWorld(true);
+              const invRoot = new THREE.Matrix4().copy(sceneRoot.matrixWorld).invert();
+              const rawBox = new THREE.Box3().setFromObject(sceneRoot);
+              const rawSize = new THREE.Vector3();
+              rawBox.getSize(rawSize);
+
+              const rawLength = Math.max(rawSize.x, rawSize.z, 0.001);
+              const uniformScale = cfg.targetLength / rawLength;
+
+              const parts = [];
+              sceneRoot.traverse((child) => {
+                if (!child.isMesh || !child.geometry) return;
+                child.updateMatrixWorld(true);
+                const localMatrix = new THREE.Matrix4().multiplyMatrices(invRoot, child.matrixWorld);
+
+                child.geometry.userData = child.geometry.userData || {};
+                child.geometry.userData.isSharedGLBAsset = true;
+
+                const baseMat = Array.isArray(child.material) ? child.material[0] : child.material;
+                if (baseMat) {
+                  baseMat.userData = baseMat.userData || {};
+                  baseMat.userData.isSharedGLBAsset = true;
+                }
+
+                const mobileMat = new THREE.MeshLambertMaterial({
+                  color: (baseMat && baseMat.color) ? baseMat.color.clone() : new THREE.Color(0xffffff),
+                  map: (baseMat && baseMat.map) ? baseMat.map : null
+                });
+                mobileMat.userData = { isSharedGLBAsset: true };
+
+                parts.push({
+                  name: child.name || weaponType,
+                  geometry: child.geometry,
+                  baseMat: baseMat,
+                  mobileMat: mobileMat,
+                  localMatrix: localMatrix
+                });
+              });
+
+              if (parts.length > 0) {
+                weaponGLBCache.set(weaponType, {
+                  cfg: cfg,
+                  uniformScale: uniformScale,
+                  parts: parts
+                });
+                resolve(true);
+              } else {
+                resolve(false);
+              }
+            } catch (err) {
+              console.warn(`Error preparando modelo ${cfg.url}:`, err);
+              resolve(false);
+            }
+          },
+          undefined,
+          (err) => {
+            console.warn(`No se pudo cargar ${cfg.url}, usando arma procedural de respaldo.`, err);
+            resolve(false);
+          }
+        );
+      });
+    });
+
+    weaponModelsPreloadPromise = Promise.allSettled(loadPromises).then(() => {
+      weaponModelsReady = true;
+      if (btnStartGame) {
+        btnStartGame.disabled = false;
+        btnStartGame.innerHTML = origStartHtml;
+      }
+    });
+
+    return weaponModelsPreloadPromise;
+  }
+
+  function applySkinTintToClonedMaterial(mat, skinId) {
+    if (!mat) return mat;
+    if (skinId === 'skin_gold') {
+      if (mat.color) mat.color.setHex(0xffd54f);
+      if (mat.emissive) {
+        mat.emissive.setHex(0x664400);
+        mat.emissiveIntensity = 0.35;
+      }
+      if (mat.metalness !== undefined) mat.metalness = 0.85;
+      if (mat.roughness !== undefined) mat.roughness = 0.25;
+    } else if (skinId === 'skin_vortex') {
+      if (mat.color) mat.color.setHex(0xa855f7);
+      if (mat.emissive) {
+        mat.emissive.setHex(0x3b0764);
+        mat.emissiveIntensity = 0.40;
+      }
+    } else if (skinId === 'skin_matrix') {
+      if (mat.color) mat.color.setHex(0x34d399);
+      if (mat.emissive) {
+        mat.emissive.setHex(0x064e3b);
+        mat.emissiveIntensity = 0.38;
+      }
+    } else if (skinId === 'skin_inferno') {
+      if (mat.color) mat.color.setHex(0xf87171);
+      if (mat.emissive) {
+        mat.emissive.setHex(0x7f1d1d);
+        mat.emissiveIntensity = 0.40;
+      }
+    }
+    return mat;
+  }
+
+  function instantiateCachedGLBWeapon(weaponType, targetGroup, skinId) {
+    const entry = weaponGLBCache.get(weaponType);
+    if (!entry) return false;
+
+    const cfg = entry.cfg;
+    const holder = new THREE.Group();
+    holder.name = `${weaponType}_glb_holder`;
+    holder.rotation.set(cfg.rotX || 0, cfg.rotY || 0, cfg.rotZ || 0);
+    // Escala UNIFORME (mismo factor en X, Y y Z) para no deformar el modelo
+    holder.scale.set(entry.uniformScale, entry.uniformScale, entry.uniformScale);
+    holder.position.set(cfg.offsetX || 0, cfg.offsetY || 0, cfg.offsetZ || 0);
+
+    const isCustomSkin = (skinId && skinId !== 'skin_default');
+
+    for (const part of entry.parts) {
+      const sharedMat = forceMobileMode ? part.mobileMat : part.baseMat;
+      let matToUse = sharedMat;
+
+      // Clonar material SOLO cuando haya una skin distinta de skin_default
+      if (isCustomSkin && sharedMat) {
+        matToUse = sharedMat.clone();
+        matToUse.userData = { isSharedGLBAsset: false };
+        applySkinTintToClonedMaterial(matToUse, skinId);
+      }
+
+      const mesh = new THREE.Mesh(part.geometry, matToUse);
+      mesh.name = part.name;
+      mesh.applyMatrix4(part.localMatrix);
+      mesh.castShadow = !forceMobileMode;
+      mesh.receiveShadow = !forceMobileMode;
+      mesh.userData.isGLBMesh = true;
+      holder.add(mesh);
+    }
+
+    targetGroup.add(holder);
+    return true;
+  }
+
+  // Iniciar precarga de modelos .glb inmediatamente al arrancar el script
+  preloadWeaponGLBModels();
+
+  // ========================================================
   // 4.5 CONSTRUCTOR DE ARMAS 3D (ESTILOS Y SILUETAS TOTALMENTE ÚNICAS)
   // ========================================================
   function createWeaponMesh3D(weaponType, isViewModel = false, themeKey = 'cyan') {
@@ -1576,8 +1783,10 @@
       group.add(conduit);
 
     } else if (weaponType === 'pistol') {
-      if (typeof buildPistolMesh === 'function') {
-        buildPistolMesh(group, { activeSkin, createStylizedPBR, applyFortniteShader });
+      if (!instantiateCachedGLBWeapon('pistol', group, activeSkin)) {
+        if (typeof buildPistolMesh === 'function') {
+          buildPistolMesh(group, { activeSkin, createStylizedPBR, applyFortniteShader });
+        }
       }
     } else if (weaponType === 'shotgun') {
       if (typeof buildShotgunMesh === 'function') {
@@ -1631,9 +1840,10 @@
     rootGroup.traverse((child) => {
       if (!child.isMesh) return;
 
-      // Proteger piezas que tengan nombres especiales o userData dinámico
+      // Proteger piezas que tengan nombres especiales, mallas GLB compartidas o userData dinámico
       const name = child.name || (child.parent ? child.parent.name : '');
       const isProtected = 
+        child.userData.isGLBMesh ||
         name.includes('balaIndicador') || 
         name.includes('anilloReloj') || 
         name.includes('nucleo') || 
@@ -2313,7 +2523,7 @@
     }
 
     updateViewWeaponModel() {
-      // Liberar geometrías y materiales huérfanos de la VRAM para evitar micro-tirones y fugas de memoria
+      // Liberar geometrías y materiales huérfanos de la VRAM sin destruir assets compartidos en caché (.glb)
       function disposeHierarchy(obj) {
         if (!obj) return;
         if (obj.children) {
@@ -2321,12 +2531,19 @@
             disposeHierarchy(obj.children[i]);
           }
         }
-        if (obj.geometry) obj.geometry.dispose();
+        if (obj.geometry && (!obj.geometry.userData || !obj.geometry.userData.isSharedGLBAsset)) {
+          obj.geometry.dispose();
+        }
         if (obj.material) {
+          const safeDisposeMat = (m) => {
+            if (m && (!m.userData || !m.userData.isSharedGLBAsset)) {
+              m.dispose();
+            }
+          };
           if (Array.isArray(obj.material)) {
-            obj.material.forEach(m => m.dispose());
+            obj.material.forEach(safeDisposeMat);
           } else {
-            obj.material.dispose();
+            safeDisposeMat(obj.material);
           }
         }
       }
@@ -4427,6 +4644,10 @@
   }
 
   function loadMap(mapIndex) {
+    if (!weaponModelsReady && weaponModelsPreloadPromise) {
+      weaponModelsPreloadPromise.then(() => loadMap(mapIndex));
+      return;
+    }
     currentMapIndex = mapIndex;
     const mapData = MAPS_3D[mapIndex];
     currentMapTheme = mapData.theme || 'lab';
@@ -5060,6 +5281,13 @@
 
   document.getElementById('btn-start-game').addEventListener('click', () => {
     window.chronoAudio.init();
+    if (!weaponModelsReady && weaponModelsPreloadPromise) {
+      weaponModelsPreloadPromise.then(() => {
+        showScreen(screenMapSelect);
+        gameState = 'mapSelect';
+      });
+      return;
+    }
     showScreen(screenMapSelect);
     gameState = 'mapSelect';
   });
@@ -6233,8 +6461,8 @@
     materialCache.clear();
 
     // Recrear arma del jugador si está activa
-    if (player && player.weapon) {
-      player.setupViewWeapon();
+    if (player && player.updateViewWeaponModel) {
+      player.updateViewWeaponModel();
     }
 
     // Actualizar armas en el suelo
