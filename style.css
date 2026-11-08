@@ -1786,7 +1786,14 @@ body.is-touch #mobile-controls-layer {
   display: none !important;
 }
 
-body.is-touch .desktop-only,
+body.is-touch .desktop-only {
+  display: none !important;
+}
+
+body.is-touch .mobile-only {
+  display: inline-block !important;
+}
+
 @media (hover: none) and (pointer: coarse) {
   .desktop-only {
     display: none !important;

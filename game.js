@@ -504,23 +504,27 @@
     reticlePulseTimer = 0.35;
   }
 
+  const _crosshairCamPos = new THREE.Vector3();
+  const _crosshairCamDir = new THREE.Vector3();
+  const _crosshairEnemyCenter = new THREE.Vector3();
+  const _crosshairToEnemy = new THREE.Vector3();
+  const _crosshairClosestPt = new THREE.Vector3();
+  const _hudPlayerPos3D = new THREE.Vector3();
+
   function isCrosshairTargetingEnemy() {
     if (!player || gameState !== 'playing' || enemies.length === 0) return false;
-    const camPos = new THREE.Vector3();
-    camera.getWorldPosition(camPos);
-    const camDir = new THREE.Vector3();
-    camera.getWorldDirection(camDir);
+    camera.getWorldPosition(_crosshairCamPos);
+    camera.getWorldDirection(_crosshairCamDir);
 
-    const enemyCenter = new THREE.Vector3();
     for (let i = 0; i < enemies.length; i++) {
       const en = enemies[i];
       if (!en || en.hp <= 0) continue;
-      enemyCenter.copy(en.position).add(new THREE.Vector3(0, 1.1, 0));
-      const toEnemy = enemyCenter.clone().sub(camPos);
-      const distAlongRay = toEnemy.dot(camDir);
+      _crosshairEnemyCenter.set(en.position.x, en.position.y + 1.1, en.position.z);
+      _crosshairToEnemy.subVectors(_crosshairEnemyCenter, _crosshairCamPos);
+      const distAlongRay = _crosshairToEnemy.dot(_crosshairCamDir);
       if (distAlongRay > 0.5 && distAlongRay < 55) {
-        const closestPoint = camPos.clone().addScaledVector(camDir, distAlongRay);
-        const perpDist = enemyCenter.distanceTo(closestPoint);
+        _crosshairClosestPt.copy(_crosshairCamPos).addScaledVector(_crosshairCamDir, distAlongRay);
+        const perpDist = _crosshairEnemyCenter.distanceTo(_crosshairClosestPt);
         if (perpDist < (en.radius + 0.55)) {
           return true;
         }
@@ -574,14 +578,8 @@
     const pulseFactor = 1.0 + reticlePulseTimer * 0.35;
 
     ctx.save();
-
-    if (isTargeting) {
-      ctx.shadowColor = 'rgba(255, 32, 82, 0.8)';
-      ctx.shadowBlur = 10;
-    } else {
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-      ctx.shadowBlur = 4;
-    }
+    // Sin shadowBlur en Canvas 2D (drawStrokedPath ya dibuja contorno negro nítido, ahorrando ~3ms CPU por frame)
+    ctx.shadowBlur = 0;
 
     function drawStrokedPath(drawFn, strokeWidth = 2) {
       ctx.lineWidth = strokeWidth + 2;
@@ -806,8 +804,6 @@
       ctx.arc(centerX, centerY, ringRadius, -Math.PI / 2, -Math.PI / 2 + (Math.PI * 2 * progress));
       ctx.lineWidth = 3.0;
       ctx.strokeStyle = '#eab308';
-      ctx.shadowColor = '#eab308';
-      ctx.shadowBlur = 8;
       ctx.stroke();
 
       // Texto de recarga
@@ -824,8 +820,8 @@
 
     // F) BARRA Y ESTADO DE MUNICIÓN FLOTANTE SOBRE/DEBAJO DEL JUGADOR (FORTNITE LOOT HUD)
     if (player && gameState === 'playing') {
-      const playerPos3D = player.position.clone().add(new THREE.Vector3(0, -0.65, 0));
-      const proj = playerPos3D.project(camera);
+      _hudPlayerPos3D.set(player.position.x, player.position.y - 0.65, player.position.z);
+      const proj = _hudPlayerPos3D.project(camera);
 
       if (proj.z < 1) {
         const pX = (proj.x * 0.5 + 0.5) * crosshairCanvas.width;
@@ -852,8 +848,6 @@
           ctx.fillStyle = 'rgba(15, 23, 42, 0.82)';
           ctx.strokeStyle = rarityColor;
           ctx.lineWidth = 1.5;
-          ctx.shadowColor = rarityColor;
-          ctx.shadowBlur = 6;
 
           ctx.beginPath();
           ctx.roundRect(left, top, cardW, cardH, 4);
@@ -933,8 +927,8 @@
   let forceMobileMode = isMobileDevice;
 
   // Resolución interna: en móvil máximo 1.0 para ahorrar GPU fill-rate (vital para Redmi 10)
-  const MAX_PIXEL_RATIO = Math.min(window.devicePixelRatio || 1, forceMobileMode ? 1.0 : 1.25);
-  let currentPixelRatio = Math.min(MAX_PIXEL_RATIO, forceMobileMode ? 1.0 : 1.15);
+  const MAX_PIXEL_RATIO = Math.min(window.devicePixelRatio || 1, forceMobileMode ? 1.0 : 1.15);
+  let currentPixelRatio = Math.min(MAX_PIXEL_RATIO, forceMobileMode ? 1.0 : 1.0);
   const renderer = new THREE.WebGLRenderer({
     canvas: canvas,
     antialias: !forceMobileMode,
@@ -943,29 +937,30 @@
   });
   renderer.setSize(1000, 650, false);
   renderer.setPixelRatio(currentPixelRatio);
-  // Sombras y tone mapping: apagadas en móvil para reducir draw calls de depth map y cálculo de fragmentos
+  // Sombras y tone mapping: PCFShadowMap es 3x más rápido que PCFSoftShadowMap manteniendo bordes limpios
   renderer.shadowMap.enabled = !forceMobileMode;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.type = THREE.PCFShadowMap;
   if (!forceMobileMode) {
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.1;
   }
 
   // ========================================================
-  // POST-PROCESSING: UNREAL BLOOM PASS (FORTNITE GLOW ESTILO)
+  // POST-PROCESSING: UNREAL BLOOM PASS (MITAD DE RESOLUCIÓN PARA MÁXIMO RENDIMIENTO)
   // ========================================================
   let composer = null;
-  if (typeof THREE.EffectComposer !== 'undefined') {
+  let bloomPass = null;
+  if (typeof THREE.EffectComposer !== 'undefined' && !isMobileDevice) {
     composer = new THREE.EffectComposer(renderer);
     const renderPass = new THREE.RenderPass(scene, camera);
     composer.addPass(renderPass);
     
-    // Configuración de Bloom optimizada (Fortnite PBR Stylized)
-    const bloomPass = new THREE.UnrealBloomPass(
-      new THREE.Vector2(1000, 650),
-      0.35,  // strength (bajado drásticamente para evitar sobreexposición)
+    // Bloom a media resolución (75% menos píxeles procesados en las 10 pasadas de desenfoque)
+    bloomPass = new THREE.UnrealBloomPass(
+      new THREE.Vector2(500, 325),
+      0.35,  // strength
       0.6,   // radius
-      0.95   // threshold (solo lo más brillante emitirá bloom)
+      0.95   // threshold
     );
     composer.addPass(bloomPass);
   }
@@ -1467,10 +1462,61 @@
       offsetX: 0.0,
       offsetY: -0.155,
       offsetZ: -0.085
+    },
+    smg: {
+      url: 'modelos/subfusil.glb',
+      targetLength: 0.58,
+      rotX: 0,
+      rotY: -Math.PI / 2,
+      rotZ: 0,
+      offsetX: 0.0,
+      offsetY: -0.185,
+      offsetZ: -0.020
+    },
+    rifle: {
+      url: 'modelos/fusil.glb',
+      targetLength: 0.76,
+      rotX: 0,
+      rotY: -Math.PI / 2,
+      rotZ: 0,
+      offsetX: 0.0,
+      offsetY: -0.165,
+      offsetZ: -0.020
+    },
+    shotgun: {
+      url: 'modelos/escopeta.glb',
+      targetLength: 0.78,
+      rotX: 0,
+      rotY: -Math.PI / 2,
+      rotZ: 0,
+      offsetX: 0.0,
+      offsetY: -0.020,
+      offsetZ: 0.0
+    },
+    sniper: {
+      url: 'modelos/francotirador.glb',
+      targetLength: 0.96,
+      rotX: 0,
+      rotY: -Math.PI / 2,
+      rotZ: 0,
+      offsetX: 0.0,
+      offsetY: -0.010,
+      offsetZ: -0.060
+    },
+    plasma: {
+      url: 'modelos/canon_plasma.glb',
+      targetLength: 0.68,
+      rotX: 0,
+      rotY: -Math.PI / 2,
+      rotZ: 0,
+      offsetX: 0.0,
+      offsetY: -0.155,
+      offsetZ: -0.080
     }
   };
 
   const weaponGLBCache = new Map();
+  const weaponGLBSkinMatCache = new Map();
   let weaponModelsReady = false;
   let weaponModelsPreloadPromise = null;
 
@@ -1634,22 +1680,30 @@
 
     const isCustomSkin = (skinId && skinId !== 'skin_default');
 
-    for (const part of entry.parts) {
+    for (let i = 0; i < entry.parts.length; i++) {
+      const part = entry.parts[i];
       const sharedMat = forceMobileMode ? part.mobileMat : part.baseMat;
       let matToUse = sharedMat;
 
-      // Clonar material SOLO cuando haya una skin distinta de skin_default
+      // Reutilizar material con tinte de skin desde caché para evitar clonar en cada instancia
       if (isCustomSkin && sharedMat) {
-        matToUse = sharedMat.clone();
-        matToUse.userData = { isSharedGLBAsset: false };
-        applySkinTintToClonedMaterial(matToUse, skinId);
+        const skinKey = `${weaponType}_${i}_${skinId}_${forceMobileMode ? 1 : 0}`;
+        if (weaponGLBSkinMatCache.has(skinKey)) {
+          matToUse = weaponGLBSkinMatCache.get(skinKey);
+        } else {
+          matToUse = sharedMat.clone();
+          matToUse.userData = { isSharedGLBAsset: true };
+          applySkinTintToClonedMaterial(matToUse, skinId);
+          weaponGLBSkinMatCache.set(skinKey, matToUse);
+        }
       }
 
       const mesh = new THREE.Mesh(part.geometry, matToUse);
       mesh.name = part.name;
       mesh.applyMatrix4(part.localMatrix);
-      mesh.castShadow = !forceMobileMode;
-      mesh.receiveShadow = !forceMobileMode;
+      // No proyectar sombras desde mallas de armas de alta densidad hacia el shadowMap global (ahorra ~50% de triángulos por frame)
+      mesh.castShadow = false;
+      mesh.receiveShadow = false;
       mesh.userData.isGLBMesh = true;
       holder.add(mesh);
     }
@@ -1673,85 +1727,33 @@
     const isMatrix = (activeSkin === 'skin_matrix');
     const isInferno = (activeSkin === 'skin_inferno');
 
-    // Neón hiper-luminoso según la skin activa o el tema
+    // Neón hiper-luminoso según la skin activa o el tema (cacheado vía createStylizedPBR)
     const neonHex = isGold ? 0xffea00 : (isVortex ? 0xc084fc : (isMatrix ? 0x22c55e : (isInferno ? 0xff3b30 : pal.primaryHex)));
-    const skinNeonMat = forceMobileMode
-      ? new THREE.MeshBasicMaterial({ color: neonHex })
-      : new THREE.MeshStandardMaterial({ 
-          color: neonHex,
-          emissive: neonHex,
-          emissiveIntensity: 4.5,
-          roughness: 0.1,
-          metalness: 0.2
-        });
-
-    // Carga de mapas procedurales HD para el sistema de renderizado de armas
-    const bmTex = getBrushedMetalTextures();
-    const cbTex = getCarbonFiberTextures();
-    const gripTex = getTacticalGripTextures();
-    const woodTex = getWoodGrainTexture();
-    const heatTex = getHeatStainTexture();
-
-    const steelDarkMat = createStylizedPBR(
-      isGold ? 0xffea00 : (isVortex ? 0x1a0f30 : (isMatrix ? 0x064e3b : (isInferno ? 0x3d0b0b : 0x242a3a))),
-      isGold ? 0x996515 : (isVortex ? 0x4c1d95 : (isMatrix ? 0x047857 : (isInferno ? 0x7f1d1d : 0x000000))),
-      isGold ? 0.38 : (isVortex ? 0.45 : (isMatrix ? 0.4 : (isInferno ? 0.45 : 0))),
-      0.4, 0.2 // Plástico oscuro denso
-    );
-
-    const chromeBrightMat = createStylizedPBR(
-      isGold ? 0xfff59d : (isVortex ? 0x4c1d95 : (isMatrix ? 0x10b981 : (isInferno ? 0xef4444 : 0xe2e8f0))),
-      isGold ? 0xffd700 : (isVortex ? 0x7e22ce : (isMatrix ? 0x059669 : (isInferno ? 0x991b1b : 0x000000))),
-      isGold ? 0.48 : (isVortex ? 0.5 : (isMatrix ? 0.45 : (isInferno ? 0.5 : 0))),
-      0.2, 0.7 // Metal brillante pulido
-    );
-
-    const gunmetalMat = createStylizedPBR(
-      isGold ? 0xf59e0b : (isVortex ? 0x2e1065 : (isMatrix ? 0x065f46 : (isInferno ? 0x501010 : 0x475569))),
-      isGold ? 0x78350f : (isVortex ? 0x4c1d95 : (isMatrix ? 0x047857 : (isInferno ? 0x450a0a : 0x000000))),
-      isGold ? 0.32 : (isVortex ? 0.4 : (isMatrix ? 0.35 : (isInferno ? 0.4 : 0))),
-      0.35, 0.5
-    );
-
-    const walnutWoodMat = createStylizedPBR(
-      isGold ? 0xffd700 : 0xa66532,
-      isGold ? 0x996515 : 0x000000,
-      isGold ? 0.35 : 0,
-      0.6, 0.0 // Madera mate
-    );
-
-    const darkRubberMat = createStylizedPBR(
-      isGold ? 0xb45309 : (isVortex ? 0x120822 : (isMatrix ? 0x022c22 : (isInferno ? 0x250606 : 0x111111))),
-      isGold ? 0x451a03 : (isVortex ? 0x2e1065 : (isMatrix ? 0x064e3b : (isInferno ? 0x450a0a : 0x000000))),
-      isGold ? 0.25 : (isVortex ? 0.3 : (isMatrix ? 0.25 : (isInferno ? 0.3 : 0))),
-      0.8, 0.0 // Goma súper mate
-    );
-
-    const militarySlateMat = createStylizedPBR(
-      isGold ? 0xffc107 : (isVortex ? 0x1e0b36 : (isMatrix ? 0x047857 : (isInferno ? 0x7f1d1d : 0x64748b))),
-      isGold ? 0x854d0e : (isVortex ? 0x5b21b6 : (isMatrix ? 0x065f46 : (isInferno ? 0x450a0a : 0x000000))),
-      isGold ? 0.35 : (isVortex ? 0.42 : (isMatrix ? 0.38 : (isInferno ? 0.42 : 0))),
-      0.4, 0.1
-    );
-
-    const obsidianMat = createStylizedPBR(
-      isGold ? 0xffea00 : (isVortex ? 0x090314 : (isMatrix ? 0x022c22 : (isInferno ? 0x180505 : 0x0f172a))),
-      isGold ? 0xca8a04 : (isVortex ? 0x3b0764 : (isMatrix ? 0x047857 : (isInferno ? 0x500724 : 0x000000))),
-      isGold ? 0.4 : (isVortex ? 0.45 : (isMatrix ? 0.4 : (isInferno ? 0.45 : 0))),
-      0.2, 0.4
-    );
-
-    const bronzeFinMat = createStylizedPBR(
-      isGold ? 0xfff080 : (isVortex ? 0x6b21a8 : (isMatrix ? 0x16a34a : (isInferno ? 0xdc2626 : 0xd97706))),
-      isGold ? 0xd97706 : (isVortex ? 0x5b21b6 : (isMatrix ? 0x059669 : (isInferno ? 0x991b1b : 0x000000))),
-      isGold ? 0.45 : (isVortex ? 0.5 : (isMatrix ? 0.45 : (isInferno ? 0.5 : 0))),
-      0.3, 0.8
-    );
+    const skinNeonMat = createStylizedPBR(neonHex, neonHex, 1.8, 0.1, 0.2);
 
     if (!weaponType || weaponType === 'fist') {
       // ========================================================
       // 1. PUÑOS: GUANTELETES DE COMBATE CON PISTONES HIDRÁULICOS
       // ========================================================
+      const steelDarkMat = createStylizedPBR(
+        isGold ? 0xffea00 : (isVortex ? 0x1a0f30 : (isMatrix ? 0x064e3b : (isInferno ? 0x3d0b0b : 0x242a3a))),
+        isGold ? 0x996515 : (isVortex ? 0x4c1d95 : (isMatrix ? 0x047857 : (isInferno ? 0x7f1d1d : 0x000000))),
+        isGold ? 0.38 : (isVortex ? 0.45 : (isMatrix ? 0.4 : (isInferno ? 0.45 : 0))),
+        0.4, 0.2
+      );
+      const chromeBrightMat = createStylizedPBR(
+        isGold ? 0xfff59d : (isVortex ? 0x4c1d95 : (isMatrix ? 0x10b981 : (isInferno ? 0xef4444 : 0xe2e8f0))),
+        isGold ? 0xffd700 : (isVortex ? 0x7e22ce : (isMatrix ? 0x059669 : (isInferno ? 0x991b1b : 0x000000))),
+        isGold ? 0.48 : (isVortex ? 0.5 : (isMatrix ? 0.45 : (isInferno ? 0.5 : 0))),
+        0.2, 0.7
+      );
+      const militarySlateMat = createStylizedPBR(
+        isGold ? 0xffc107 : (isVortex ? 0x1e0b36 : (isMatrix ? 0x047857 : (isInferno ? 0x7f1d1d : 0x64748b))),
+        isGold ? 0x854d0e : (isVortex ? 0x5b21b6 : (isMatrix ? 0x065f46 : (isInferno ? 0x450a0a : 0x000000))),
+        isGold ? 0.35 : (isVortex ? 0.42 : (isMatrix ? 0.38 : (isInferno ? 0.42 : 0))),
+        0.4, 0.1
+      );
+
       const bracer = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.14, 0.26), militarySlateMat);
       bracer.position.set(0, 0, 0.06);
       group.add(bracer);
@@ -1789,24 +1791,34 @@
         }
       }
     } else if (weaponType === 'shotgun') {
-      if (typeof buildShotgunMesh === 'function') {
-        buildShotgunMesh(group, { activeSkin, createStylizedPBR, applyFortniteShader });
+      if (!instantiateCachedGLBWeapon('shotgun', group, activeSkin)) {
+        if (typeof buildShotgunMesh === 'function') {
+          buildShotgunMesh(group, { activeSkin, createStylizedPBR, applyFortniteShader });
+        }
       }
     } else if (weaponType === 'smg') {
-      if (typeof buildSmgMesh === 'function') {
-        buildSmgMesh(group, { activeSkin, createStylizedPBR, applyFortniteShader, skinNeonMat, getSmgGradientTexture });
+      if (!instantiateCachedGLBWeapon('smg', group, activeSkin)) {
+        if (typeof buildSmgMesh === 'function') {
+          buildSmgMesh(group, { activeSkin, createStylizedPBR, applyFortniteShader, skinNeonMat, getSmgGradientTexture });
+        }
       }
     } else if (weaponType === 'rifle') {
-      if (typeof buildRifleMesh === 'function') {
-        buildRifleMesh(group, { activeSkin, createStylizedPBR, applyFortniteShader, skinNeonMat, getScarGradientTexture });
+      if (!instantiateCachedGLBWeapon('rifle', group, activeSkin)) {
+        if (typeof buildRifleMesh === 'function') {
+          buildRifleMesh(group, { activeSkin, createStylizedPBR, applyFortniteShader, skinNeonMat, getScarGradientTexture });
+        }
       }
     } else if (weaponType === 'sniper') {
-      if (typeof buildSniperMesh === 'function') {
-        buildSniperMesh(group, { activeSkin, createStylizedPBR, applyFortniteShader, skinNeonMat });
+      if (!instantiateCachedGLBWeapon('sniper', group, activeSkin)) {
+        if (typeof buildSniperMesh === 'function') {
+          buildSniperMesh(group, { activeSkin, createStylizedPBR, applyFortniteShader, skinNeonMat });
+        }
       }
     } else if (weaponType === 'plasma') {
-      if (typeof buildPlasmaMesh === 'function') {
-        buildPlasmaMesh(group, { activeSkin, createStylizedPBR, applyFortniteShader });
+      if (!instantiateCachedGLBWeapon('plasma', group, activeSkin)) {
+        if (typeof buildPlasmaMesh === 'function') {
+          buildPlasmaMesh(group, { activeSkin, createStylizedPBR, applyFortniteShader });
+        }
       }
     }
 
@@ -1991,26 +2003,28 @@
     return merged;
   }
 
-  function addPlayerHandsToWeapon(group, weaponType, neonHex, skinNeonMat) {
-    const handGroup = new THREE.Group();
-
-    const cbTex = getCarbonFiberTextures();
+  let _cachedHandMats = null;
+  function getSharedHandMaterials() {
+    if (_cachedHandMats) return _cachedHandMats;
     const gripTex = getTacticalGripTextures();
-    
+    const bmTex = getBrushedMetalTextures();
+
     const gloveMat = new THREE.MeshStandardMaterial({
-      color: 0x181a1f, // Guantes tácticos lisos oscuros
+      color: 0x181a1f,
       roughness: 0.8,
       metalness: 0.1
     });
+    gloveMat.userData = { isSharedGLBAsset: true };
 
     const armorPlateMat = new THREE.MeshStandardMaterial({
       color: 0x1e293b,
-      map: getBrushedMetalTextures().map,
-      bumpMap: getBrushedMetalTextures().bump,
+      map: bmTex.map,
+      bumpMap: bmTex.bump,
       bumpScale: 0.03,
       roughness: 0.2,
       metalness: 0.85
     });
+    armorPlateMat.userData = { isSharedGLBAsset: true };
 
     const palmMat = new THREE.MeshStandardMaterial({
       color: 0x0f172a,
@@ -2020,6 +2034,15 @@
       roughness: 0.7,
       metalness: 0.1
     });
+    palmMat.userData = { isSharedGLBAsset: true };
+
+    _cachedHandMats = { gloveMat, armorPlateMat, palmMat };
+    return _cachedHandMats;
+  }
+
+  function addPlayerHandsToWeapon(group, weaponType, neonHex, skinNeonMat) {
+    const handGroup = new THREE.Group();
+    const { gloveMat, armorPlateMat, palmMat } = getSharedHandMaterials();
 
     // --- MANO DERECHA ---
     const rightArmGroup = new THREE.Group();
@@ -2045,14 +2068,14 @@
     rThumb.rotation.x = -0.3;
     rPalm.add(rThumb);
 
-    const rForearm = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.048, 0.35, 12), gloveMat);
+    const rForearm = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.048, 0.35, 10), gloveMat);
     rForearm.rotation.x = Math.PI / 2 + 0.15;
     rForearm.position.set(0, -0.05, 0.2);
     
-    const rWristRing = new THREE.Mesh(new THREE.CylinderGeometry(0.047, 0.047, 0.025, 12), armorPlateMat);
+    const rWristRing = new THREE.Mesh(new THREE.CylinderGeometry(0.047, 0.047, 0.025, 10), armorPlateMat);
     rWristRing.rotation.x = Math.PI / 2 + 0.15;
     rWristRing.position.set(0, -0.02, 0.07);
-    const rWristGlow = new THREE.Mesh(new THREE.CylinderGeometry(0.048, 0.048, 0.01, 12), skinNeonMat);
+    const rWristGlow = new THREE.Mesh(new THREE.CylinderGeometry(0.048, 0.048, 0.01, 10), skinNeonMat);
     rWristGlow.rotation.x = Math.PI / 2 + 0.15;
     rWristGlow.position.set(0, -0.02, 0.07);
     rForearm.add(rWristRing, rWristGlow);
@@ -2104,7 +2127,7 @@
         lPalm.add(finger);
       }
 
-      const lForearm = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.048, 0.38, 12), gloveMat);
+      const lForearm = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.048, 0.38, 10), gloveMat);
       lForearm.rotation.x = Math.PI / 2 - 0.2;
       lForearm.position.set(0, -0.06, 0.22);
       leftArmGroup.add(lPalm, lForearm);
@@ -2135,16 +2158,28 @@
   // 4.8 CLASE EJECTED SHELL 3D (CASQUILLOS DE BALA EYECTADOS EN 3D)
   // ========================================================
   let ejectedShells = [];
+  let _sharedShellGeo = null;
+  let _sharedBrassShellMat = null;
+  let _sharedRedShellMat = null;
 
   class EjectedShell3D {
     constructor(spawnPos, shootDir, isBrass = true) {
-      this.mesh = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.012, 0.012, 0.045, 10),
-        new THREE.MeshToonMaterial({
-          color: isBrass ? 0xf59e0b : 0xff3b30,
-          emissive: isBrass ? 0xd97706 : 0x000000,
+      if (!_sharedShellGeo) {
+        _sharedShellGeo = new THREE.CylinderGeometry(0.012, 0.012, 0.045, 8);
+        _sharedBrassShellMat = new THREE.MeshToonMaterial({
+          color: 0xf59e0b,
+          emissive: 0xd97706,
           emissiveIntensity: 0.2
-        })
+        });
+        _sharedRedShellMat = new THREE.MeshToonMaterial({
+          color: 0xff3b30,
+          emissive: 0x000000,
+          emissiveIntensity: 0.2
+        });
+      }
+      this.mesh = new THREE.Mesh(
+        _sharedShellGeo,
+        isBrass ? _sharedBrassShellMat : _sharedRedShellMat
       );
       this.mesh.rotation.z = Math.PI / 2;
       this.mesh.position.copy(spawnPos);
@@ -2832,6 +2867,20 @@
   // ========================================================
   // 6. CLASE ENEMY 3D (FIGURAS DE CRISTAL ROJO FACETADO)
   // ========================================================
+  let _sharedEnemyGeos = null;
+  function getSharedEnemyGeos() {
+    if (_sharedEnemyGeos) return _sharedEnemyGeos;
+    _sharedEnemyGeos = {
+      torsoGeo: new THREE.CylinderGeometry(0.32, 0.22, 0.75, 6),
+      headGeo: new THREE.IcosahedronGeometry(0.24, 0),
+      legGeo: new THREE.CylinderGeometry(0.12, 0.08, 0.8, 5),
+      armGeo: new THREE.BoxGeometry(0.1, 0.1, 0.45),
+      pipGeo: new THREE.OctahedronGeometry(0.05, 0),
+      pipMat: new THREE.MeshBasicMaterial({ color: 0xff2052 })
+    };
+    return _sharedEnemyGeos;
+  }
+
   class Enemy3D {
     constructor(x, z, weaponType = 'pistol', rotY = Math.PI) {
       this.position = new THREE.Vector3(x, 0, z);
@@ -2859,6 +2908,7 @@
       this.mesh = new THREE.Group();
       this.mesh.position.copy(this.position);
 
+      const eGeos = getSharedEnemyGeos();
       const crystalMat = new THREE.MeshStandardMaterial({
         color: 0x990518,
         emissive: 0xbb0a22,
@@ -2870,31 +2920,27 @@
       this.crystalMat = crystalMat;
 
       // Torso angular
-      const torsoGeo = new THREE.CylinderGeometry(0.32, 0.22, 0.75, 6);
-      const torso = new THREE.Mesh(torsoGeo, crystalMat);
+      const torso = new THREE.Mesh(eGeos.torsoGeo, crystalMat);
       torso.position.y = 1.15;
-      torso.castShadow = true;
+      torso.castShadow = !forceMobileMode;
       this.mesh.add(torso);
 
       // Cabeza facetada de diamante
-      const headGeo = new THREE.IcosahedronGeometry(0.24, 0);
-      const head = new THREE.Mesh(headGeo, crystalMat);
+      const head = new THREE.Mesh(eGeos.headGeo, crystalMat);
       head.position.y = 1.72;
-      head.castShadow = true;
+      head.castShadow = !forceMobileMode;
       this.mesh.add(head);
 
       // Piernas de cristal
-      const legGeo = new THREE.CylinderGeometry(0.12, 0.08, 0.8, 5);
-      const legL = new THREE.Mesh(legGeo, crystalMat);
+      const legL = new THREE.Mesh(eGeos.legGeo, crystalMat);
       legL.position.set(-0.16, 0.4, 0);
-      legL.castShadow = true;
+      legL.castShadow = !forceMobileMode;
       const legR = legL.clone();
       legR.position.x = 0.16;
       this.mesh.add(legL, legR);
 
       // Brazo con arma
-      const armGeo = new THREE.BoxGeometry(0.1, 0.1, 0.45);
-      const arm = new THREE.Mesh(armGeo, crystalMat);
+      const arm = new THREE.Mesh(eGeos.armGeo, crystalMat);
       arm.position.set(0.35, 1.2, 0.25);
       this.mesh.add(arm);
 
@@ -2924,9 +2970,7 @@
       this.pips = [];
 
       for (let p = 0; p < 5; p++) {
-        const pipGeo = new THREE.OctahedronGeometry(0.05, 0);
-        const pipMat = new THREE.MeshBasicMaterial({ color: 0xff2052 });
-        const pipMesh = new THREE.Mesh(pipGeo, pipMat);
+        const pipMesh = new THREE.Mesh(eGeos.pipGeo, eGeos.pipMat);
         pipMesh.position.x = (p - 2) * 0.13;
         this.healthPipsGroup.add(pipMesh);
         this.pips.push(pipMesh);
