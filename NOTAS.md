@@ -26,6 +26,7 @@
 - **`modelos/escopeta.glb`**: Modelo 3D optimizado de la escopeta pesada (`shotgun`, 9.000 triángulos, texturas 1024×1024 px JPEG, 0,76 MB), generado a partir de `diseño 3D armas/escopeta.glb`.
 - **`modelos/francotirador.glb`**: Modelo 3D optimizado del rifle francotirador (`sniper`, 9.000 triángulos, texturas 1024×1024 px JPEG, 0,75 MB), generado a partir de `diseño 3D armas/francotirador.glb`.
 - **`modelos/canon_plasma.glb`**: Modelo 3D optimizado del cañón de plasma (`plasma`, 8.999 triángulos, texturas 1024×1024 px JPEG, 0,52 MB), generado a partir de `diseño 3D armas/cañon de plasma.glb`.
+- **`modelos/armas_glb_bundle.js`**: Paquete JS con los 6 modelos `.glb` codificados en Base64 y texturas en `data:image/jpeg;base64` para permitir la carga directa con `gltfLoader.parse()` sin errores de CORS al abrir `index.html` mediante `file://`.
 - **`armas/pistola.js`**: Módulo 3D procedural de respaldo de la pistola táctica Chrono (geometría, materiales PBR, corredera, armazón y detalles cronográficos).
 - **`armas/subfusil.js`**: Módulo 3D del subfusil Vector Chrono (geometría aerodinámica, emblema cronográfico, cargador extendido y culata retráctil).
 - **`armas/fusil.js`**: Módulo 3D del fusil de asalto SCAR / M4 Chrono (vial de taquiones, engranajes cronográficos, cargador curvo y culata telescópica).

@@ -1520,6 +1520,16 @@
   let weaponModelsReady = false;
   let weaponModelsPreloadPromise = null;
 
+  function decodeBase64ToArrayBuffer(b64) {
+    const binStr = atob(b64);
+    const len = binStr.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binStr.charCodeAt(i);
+    }
+    return bytes.buffer;
+  }
+
   function preloadWeaponGLBModels() {
     if (weaponModelsPreloadPromise) return weaponModelsPreloadPromise;
 
@@ -1551,75 +1561,85 @@
     const entries = Object.entries(WEAPON_GLB_CONFIG);
     const loadPromises = entries.map(([weaponType, cfg]) => {
       return new Promise((resolve) => {
-        gltfLoader.load(
-          cfg.url,
-          (gltf) => {
-            try {
-              const sceneRoot = gltf.scene || (gltf.scenes && gltf.scenes[0]);
-              if (!sceneRoot) {
-                resolve(false);
-                return;
+        const onGltfSuccess = (gltf) => {
+          try {
+            const sceneRoot = gltf.scene || (gltf.scenes && gltf.scenes[0]);
+            if (!sceneRoot) {
+              resolve(false);
+              return;
+            }
+            sceneRoot.updateMatrixWorld(true);
+            const invRoot = new THREE.Matrix4().copy(sceneRoot.matrixWorld).invert();
+            const rawBox = new THREE.Box3().setFromObject(sceneRoot);
+            const rawSize = new THREE.Vector3();
+            rawBox.getSize(rawSize);
+
+            const rawLength = Math.max(rawSize.x, rawSize.z, 0.001);
+            const uniformScale = cfg.targetLength / rawLength;
+
+            const parts = [];
+            sceneRoot.traverse((child) => {
+              if (!child.isMesh || !child.geometry) return;
+              child.updateMatrixWorld(true);
+              const localMatrix = new THREE.Matrix4().multiplyMatrices(invRoot, child.matrixWorld);
+
+              child.geometry.userData = child.geometry.userData || {};
+              child.geometry.userData.isSharedGLBAsset = true;
+
+              const baseMat = Array.isArray(child.material) ? child.material[0] : child.material;
+              if (baseMat) {
+                baseMat.userData = baseMat.userData || {};
+                baseMat.userData.isSharedGLBAsset = true;
               }
-              sceneRoot.updateMatrixWorld(true);
-              const invRoot = new THREE.Matrix4().copy(sceneRoot.matrixWorld).invert();
-              const rawBox = new THREE.Box3().setFromObject(sceneRoot);
-              const rawSize = new THREE.Vector3();
-              rawBox.getSize(rawSize);
 
-              const rawLength = Math.max(rawSize.x, rawSize.z, 0.001);
-              const uniformScale = cfg.targetLength / rawLength;
-
-              const parts = [];
-              sceneRoot.traverse((child) => {
-                if (!child.isMesh || !child.geometry) return;
-                child.updateMatrixWorld(true);
-                const localMatrix = new THREE.Matrix4().multiplyMatrices(invRoot, child.matrixWorld);
-
-                child.geometry.userData = child.geometry.userData || {};
-                child.geometry.userData.isSharedGLBAsset = true;
-
-                const baseMat = Array.isArray(child.material) ? child.material[0] : child.material;
-                if (baseMat) {
-                  baseMat.userData = baseMat.userData || {};
-                  baseMat.userData.isSharedGLBAsset = true;
-                }
-
-                const mobileMat = new THREE.MeshLambertMaterial({
-                  color: (baseMat && baseMat.color) ? baseMat.color.clone() : new THREE.Color(0xffffff),
-                  map: (baseMat && baseMat.map) ? baseMat.map : null
-                });
-                mobileMat.userData = { isSharedGLBAsset: true };
-
-                parts.push({
-                  name: child.name || weaponType,
-                  geometry: child.geometry,
-                  baseMat: baseMat,
-                  mobileMat: mobileMat,
-                  localMatrix: localMatrix
-                });
+              const mobileMat = new THREE.MeshLambertMaterial({
+                color: (baseMat && baseMat.color) ? baseMat.color.clone() : new THREE.Color(0xffffff),
+                map: (baseMat && baseMat.map) ? baseMat.map : null
               });
+              mobileMat.userData = { isSharedGLBAsset: true };
 
-              if (parts.length > 0) {
-                weaponGLBCache.set(weaponType, {
-                  cfg: cfg,
-                  uniformScale: uniformScale,
-                  parts: parts
-                });
-                resolve(true);
-              } else {
-                resolve(false);
-              }
-            } catch (err) {
-              console.warn(`Error preparando modelo ${cfg.url}:`, err);
+              parts.push({
+                name: child.name || weaponType,
+                geometry: child.geometry,
+                baseMat: baseMat,
+                mobileMat: mobileMat,
+                localMatrix: localMatrix
+              });
+            });
+
+            if (parts.length > 0) {
+              weaponGLBCache.set(weaponType, {
+                cfg: cfg,
+                uniformScale: uniformScale,
+                parts: parts
+              });
+              resolve(true);
+            } else {
               resolve(false);
             }
-          },
-          undefined,
-          (err) => {
-            console.warn(`No se pudo cargar ${cfg.url}, usando arma procedural de respaldo.`, err);
+          } catch (err) {
+            console.warn(`Error preparando modelo ${cfg.url}:`, err);
             resolve(false);
           }
-        );
+        };
+
+        const onGltfError = (err) => {
+          console.warn(`No se pudo cargar ${cfg.url}, usando arma procedural de respaldo.`, err);
+          resolve(false);
+        };
+
+        // Si existe el bundle Base64 (modelos/armas_glb_bundle.js), parsear en memoria sin XMLHttpRequest
+        // para que funcione tanto al abrir index.html con doble clic (file://) como en servidor HTTP
+        if (window.CHRONO_GLB_BASE64 && window.CHRONO_GLB_BASE64[weaponType]) {
+          try {
+            const arrayBuffer = decodeBase64ToArrayBuffer(window.CHRONO_GLB_BASE64[weaponType]);
+            gltfLoader.parse(arrayBuffer, '', onGltfSuccess, onGltfError);
+          } catch (err) {
+            onGltfError(err);
+          }
+        } else {
+          gltfLoader.load(cfg.url, onGltfSuccess, undefined, onGltfError);
+        }
       });
     });
 
@@ -1628,6 +1648,9 @@
       if (btnStartGame) {
         btnStartGame.disabled = false;
         btnStartGame.innerHTML = origStartHtml;
+      }
+      if (player && typeof player.updateViewWeaponModel === 'function') {
+        player.updateViewWeaponModel();
       }
     });
 
