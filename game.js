@@ -3668,8 +3668,66 @@
   }
 
   // ========================================================
-  // 10. CLASE CYBER CHEST 3D (COFRES BLINDADOS INTERACTIVOS)
+  // 10. CLASE CYBER CHEST 3D (COFRES CRONOGRÁFICOS BLINDADOS 3D)
   // ========================================================
+  let _sharedChestAssets = null;
+  function getSharedChestAssets() {
+    if (_sharedChestAssets) return _sharedChestAssets;
+
+    const navyArmorMat = applyFortniteShader(createStylizedPBR(0x111a2e, 0x000000, 0, 0.36, 0.45), { edge: 0.72, grad: 0.20, rim: 0.24 });
+    const darkObsidianMat = applyFortniteShader(createStylizedPBR(0x090d18, 0x000000, 0, 0.55, 0.30), { edge: 0.55, grad: 0.16, rim: 0.15 });
+    const ivoryPlateMat = applyFortniteShader(createStylizedPBR(0xd9c7a0, 0x000000, 0, 0.32, 0.22), { edge: 0.78, grad: 0.22, rim: 0.26 });
+    const chronoGoldMat = applyFortniteShader(createStylizedPBR(0xf59e0b, 0x92400e, 0.22, 0.24, 0.86), { edge: 0.82, grad: 0.14, rim: 0.28 });
+    const copperTrimMat = applyFortniteShader(createStylizedPBR(0xd97706, 0x7c2d12, 0.16, 0.28, 0.80), { edge: 0.75, grad: 0.14, rim: 0.22 });
+    const neonCyanMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
+    const neonGoldMat = new THREE.MeshBasicMaterial({ color: 0xffea00 });
+
+    _sharedChestAssets = {
+      navyArmorMat,
+      darkObsidianMat,
+      ivoryPlateMat,
+      chronoGoldMat,
+      copperTrimMat,
+      neonCyanMat,
+      neonGoldMat,
+      // Geometrías reutilizables
+      plinthGeo: new THREE.BoxGeometry(1.58, 0.12, 1.04),
+      footGeo: new THREE.BoxGeometry(0.24, 0.16, 0.24),
+      lowerHullGeo: new THREE.BoxGeometry(1.44, 0.52, 0.90),
+      wallFBGeo: new THREE.BoxGeometry(1.44, 0.24, 0.10),
+      wallLRGeo: new THREE.BoxGeometry(0.10, 0.24, 0.70),
+      ivoryPanelFBGeo: new THREE.BoxGeometry(1.12, 0.40, 0.04),
+      ivoryPanelSideGeo: new THREE.BoxGeometry(0.04, 0.38, 0.58),
+      cornerPillarGeo: new THREE.BoxGeometry(0.14, 0.72, 0.14),
+      pillarNeonGeo: new THREE.BoxGeometry(0.035, 0.54, 0.15),
+      goldBeltGeo: new THREE.BoxGeometry(1.50, 0.08, 0.96),
+      cyanBeltGeo: new THREE.BoxGeometry(1.48, 0.028, 0.94),
+      handleBracketGeo: new THREE.BoxGeometry(0.06, 0.10, 0.08),
+      handleBarGeo: new THREE.CylinderGeometry(0.022, 0.022, 0.34, 10),
+      interiorTrayGeo: new THREE.BoxGeometry(1.18, 0.05, 0.64),
+      interiorRailGeo: new THREE.BoxGeometry(1.06, 0.03, 0.04),
+      coreCrystalGeo: new THREE.OctahedronGeometry(0.14, 0),
+      // Geometrías de la Tapa Abovedada
+      lidBaseGeo: new THREE.BoxGeometry(1.48, 0.12, 0.94),
+      lidDomeMidGeo: new THREE.BoxGeometry(1.34, 0.12, 0.78),
+      lidDomeTopGeo: new THREE.BoxGeometry(1.14, 0.08, 0.56),
+      lidArchGeo: new THREE.BoxGeometry(0.12, 0.24, 0.96),
+      lidSpineGeo: new THREE.BoxGeometry(0.88, 0.04, 0.10),
+      hingeCylGeo: new THREE.CylinderGeometry(0.055, 0.055, 0.22, 12),
+      // Geometrías de la Cerradura de Reloj Chrono
+      lockHousingGeo: new THREE.CylinderGeometry(0.21, 0.23, 0.07, 16),
+      lockDialGeo: new THREE.CylinderGeometry(0.15, 0.15, 0.08, 16),
+      gearRingGeo: new THREE.TorusGeometry(0.16, 0.022, 8, 20),
+      gearToothGeo: new THREE.BoxGeometry(0.045, 0.38, 0.04),
+      gearHubGeo: new THREE.CylinderGeometry(0.04, 0.04, 0.10, 12),
+      handHourGeo: new THREE.BoxGeometry(0.024, 0.10, 0.02),
+      handMinGeo: new THREE.BoxGeometry(0.018, 0.14, 0.02),
+      ringGeo: new THREE.RingGeometry(0.36, 0.44, 32),
+      outerRingGeo: new THREE.RingGeometry(0.48, 0.51, 6)
+    };
+    return _sharedChestAssets;
+  }
+
   class CyberChest3D {
     constructor(x, z, loot) {
       this.position = new THREE.Vector3(x, 0, z);
@@ -3678,53 +3736,206 @@
       this.openAnim = 0;
       this.holdProgress = 0;
       this.requiredHoldTime = 1.1;
+      this.animTime = Math.random() * Math.PI * 2;
 
-      // Grupo de Malla 3D del Cofre
+      const A = getSharedChestAssets();
+
+      // Grupo raíz del Cofre 3D
       this.group = new THREE.Group();
       this.group.position.copy(this.position);
 
-      // Cuerpo base metálico
-      const baseGeo = new THREE.BoxGeometry(1.4, 0.8, 0.9);
-      const baseMat = new THREE.MeshStandardMaterial({
-        color: 0x0f172a,
-        roughness: 0.3,
-        metalness: 0.85
-      });
-      const baseMesh = new THREE.Mesh(baseGeo, baseMat);
-      baseMesh.position.y = 0.4;
-      baseMesh.castShadow = true;
-      this.group.add(baseMesh);
+      // 1. ZÓCALO TÁCTICO Y PATAS DE ANCLAJE (BASE PLINTH)
+      const plinth = new THREE.Mesh(A.plinthGeo, A.darkObsidianMat);
+      plinth.position.y = 0.06;
+      plinth.castShadow = !forceMobileMode;
+      plinth.receiveShadow = !forceMobileMode;
+      this.group.add(plinth);
 
-      // Banda de aleación dorada neón
-      const goldMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b });
-      const band = new THREE.Mesh(new THREE.BoxGeometry(1.44, 0.12, 0.94), goldMat);
-      band.position.y = 0.4;
-      this.group.add(band);
+      for (const sx of [-0.68, 0.68]) {
+        for (const sz of [-0.42, 0.42]) {
+          const foot = new THREE.Mesh(A.footGeo, A.copperTrimMat);
+          foot.position.set(sx, 0.08, sz);
+          this.group.add(foot);
+        }
+      }
 
-      // Tapa con bisagra articulada
+      // 2. CASCO PRINCIPAL ACORAZADO CON CAVIDAD INTERIOR REAL
+      const lowerHull = new THREE.Mesh(A.lowerHullGeo, A.navyArmorMat);
+      lowerHull.position.y = 0.36;
+      lowerHull.castShadow = !forceMobileMode;
+      lowerHull.receiveShadow = !forceMobileMode;
+      this.group.add(lowerHull);
+
+      // Paredes del borde superior (crean el hueco interior al abrir la tapa)
+      const wallF = new THREE.Mesh(A.wallFBGeo, A.navyArmorMat);
+      wallF.position.set(0, 0.72, 0.40);
+      const wallB = new THREE.Mesh(A.wallFBGeo, A.navyArmorMat);
+      wallB.position.set(0, 0.72, -0.40);
+      const wallL = new THREE.Mesh(A.wallLRGeo, A.navyArmorMat);
+      wallL.position.set(-0.67, 0.72, 0);
+      const wallR = new THREE.Mesh(A.wallLRGeo, A.navyArmorMat);
+      wallR.position.set(0.67, 0.72, 0);
+      this.group.add(wallF, wallB, wallL, wallR);
+
+      // Paneles blindados en Marfil/Titanio (contraste Chrono Bullet)
+      for (const sz of [-0.455, 0.455]) {
+        const panelFB = new THREE.Mesh(A.ivoryPanelFBGeo, A.ivoryPlateMat);
+        panelFB.position.set(0, 0.44, sz);
+        this.group.add(panelFB);
+      }
+      for (const sx of [-0.725, 0.725]) {
+        const panelSide = new THREE.Mesh(A.ivoryPanelSideGeo, A.ivoryPlateMat);
+        panelSide.position.set(sx, 0.44, 0);
+        this.group.add(panelSide);
+      }
+
+      // 4 Pilares esquineros blindados en Cobre/Oro con venas de neón turquesa
+      for (const sx of [-0.69, 0.69]) {
+        for (const sz of [-0.42, 0.42]) {
+          const pillar = new THREE.Mesh(A.cornerPillarGeo, A.copperTrimMat);
+          pillar.position.set(sx, 0.48, sz);
+          const neonStrip = new THREE.Mesh(A.pillarNeonGeo, A.neonCyanMat);
+          neonStrip.position.set(sx, 0.48, sz);
+          this.group.add(pillar, neonStrip);
+        }
+      }
+
+      // Cinturón perimetral dorado + línea de energía turquesa bajo la unión de la tapa
+      const goldBelt = new THREE.Mesh(A.goldBeltGeo, A.chronoGoldMat);
+      goldBelt.position.y = 0.78;
+      const cyanBelt = new THREE.Mesh(A.cyanBeltGeo, A.neonCyanMat);
+      cyanBelt.position.y = 0.73;
+      this.group.add(goldBelt, cyanBelt);
+
+      // Asas mecánicas laterales
+      for (const sx of [-0.75, 0.75]) {
+        const b1 = new THREE.Mesh(A.handleBracketGeo, A.copperTrimMat);
+        b1.position.set(sx, 0.48, -0.14);
+        const b2 = new THREE.Mesh(A.handleBracketGeo, A.copperTrimMat);
+        b2.position.set(sx, 0.48, 0.14);
+        const bar = new THREE.Mesh(A.handleBarGeo, A.chronoGoldMat);
+        bar.rotation.x = Math.PI / 2;
+        bar.position.set(sx + (sx > 0 ? 0.03 : -0.03), 0.48, 0);
+        this.group.add(b1, b2, bar);
+      }
+
+      // 3. CÁMARA DE ENERGÍA INTERIOR (VISIBLE AL ABRIR EL COFRE)
+      const tray = new THREE.Mesh(A.interiorTrayGeo, A.darkObsidianMat);
+      tray.position.y = 0.63;
+      const rail1 = new THREE.Mesh(A.interiorRailGeo, A.neonCyanMat);
+      rail1.position.set(0, 0.66, -0.18);
+      const rail2 = new THREE.Mesh(A.interiorRailGeo, A.neonCyanMat);
+      rail2.position.set(0, 0.66, 0.18);
+      this.group.add(tray, rail1, rail2);
+
+      // Cristal de energía flotante en el interior del cofre
+      this.interiorCrystal = new THREE.Mesh(A.coreCrystalGeo, A.neonGoldMat);
+      this.interiorCrystal.position.set(0, 0.76, 0);
+      this.group.add(this.interiorCrystal);
+
+      // 4. TAPA ABOVEDADA ARTICULADA (VAULTED SCI-FI LID)
       this.lidGroup = new THREE.Group();
-      this.lidGroup.position.set(0, 0.8, -0.45);
-      const lidMesh = new THREE.Mesh(new THREE.BoxGeometry(1.42, 0.18, 0.92), baseMat);
-      lidMesh.position.set(0, 0.09, 0.45);
-      this.lidGroup.add(lidMesh);
+      this.lidGroup.position.set(0, 0.82, -0.46);
+
+      const lidBase = new THREE.Mesh(A.lidBaseGeo, A.navyArmorMat);
+      lidBase.position.set(0, 0.06, 0.46);
+      lidBase.castShadow = !forceMobileMode;
+
+      const lidDomeMid = new THREE.Mesh(A.lidDomeMidGeo, A.ivoryPlateMat);
+      lidDomeMid.position.set(0, 0.16, 0.46);
+
+      const lidDomeTop = new THREE.Mesh(A.lidDomeTopGeo, A.navyArmorMat);
+      lidDomeTop.position.set(0, 0.24, 0.46);
+
+      // Arcos de refuerzo dorados sobre la tapa abovedada
+      for (const archX of [-0.46, 0.46]) {
+        const arch = new THREE.Mesh(A.lidArchGeo, A.chronoGoldMat);
+        arch.position.set(archX, 0.13, 0.46);
+        this.lidGroup.add(arch);
+      }
+
+      // Cresta central emisiva turquesa en el lomo de la tapa
+      const lidSpine = new THREE.Mesh(A.lidSpineGeo, A.neonCyanMat);
+      lidSpine.position.set(0, 0.275, 0.46);
+
+      // Bisagras cilíndricas traseras de cobre pesado
+      for (const hx of [-0.46, 0.46]) {
+        const hinge = new THREE.Mesh(A.hingeCylGeo, A.copperTrimMat);
+        hinge.rotation.z = Math.PI / 2;
+        hinge.position.set(hx, 0.02, 0.02);
+        this.lidGroup.add(hinge);
+      }
+
+      this.lidGroup.add(lidBase, lidDomeMid, lidDomeTop, lidSpine);
       this.group.add(this.lidGroup);
 
-      // Anillo holográfico 3D de progreso radial
-      const ringGeo = new THREE.RingGeometry(0.35, 0.42, 32);
+      // 5. CERRADURA DE RELOJ CRONOGRÁFICO 3D (FRONTAL Y TRASERA)
+      this.clockGears = [];
+      this.clockHands = [];
+      for (const sideZ of [1, -1]) {
+        const lockGroup = new THREE.Group();
+        lockGroup.position.set(0, 0.78, sideZ * 0.48);
+        if (sideZ < 0) lockGroup.rotation.y = Math.PI;
+
+        const housing = new THREE.Mesh(A.lockHousingGeo, A.copperTrimMat);
+        housing.rotation.x = Math.PI / 2;
+
+        const dial = new THREE.Mesh(A.lockDialGeo, A.neonCyanMat);
+        dial.rotation.x = Math.PI / 2;
+
+        // Engranaje rotatorio dorado de 8 dientes
+        const gearRotor = new THREE.Group();
+        gearRotor.position.z = 0.03;
+        const gearRing = new THREE.Mesh(A.gearRingGeo, A.chronoGoldMat);
+        gearRotor.add(gearRing);
+        for (let t = 0; t < 4; t++) {
+          const tooth = new THREE.Mesh(A.gearToothGeo, A.chronoGoldMat);
+          tooth.rotation.z = (t * Math.PI) / 4;
+          gearRotor.add(tooth);
+        }
+        this.clockGears.push(gearRotor);
+
+        // Manecillas del reloj en oro brillante
+        const handsGroup = new THREE.Group();
+        handsGroup.position.z = 0.048;
+        const hub = new THREE.Mesh(A.gearHubGeo, A.darkObsidianMat);
+        hub.rotation.x = Math.PI / 2;
+        const handH = new THREE.Mesh(A.handHourGeo, A.neonGoldMat);
+        handH.position.set(0.025, 0.03, 0.02);
+        handH.rotation.z = -0.6;
+        const handM = new THREE.Mesh(A.handMinGeo, A.chronoGoldMat);
+        handM.position.set(-0.02, 0.05, 0.02);
+        handM.rotation.z = 0.4;
+        handsGroup.add(hub, handH, handM);
+        this.clockHands.push(handsGroup);
+
+        lockGroup.add(housing, dial, gearRotor, handsGroup);
+        this.group.add(lockGroup);
+      }
+
+      // 6. ANILLO HOLOGRÁFICO 3D DE PROGRESO RADIAL
       this.ringMat = new THREE.MeshBasicMaterial({
+        color: 0x00f0ff,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0
+      });
+      this.ringMesh = new THREE.Mesh(A.ringGeo, this.ringMat);
+      this.ringMesh.position.y = 1.65;
+
+      this.outerRingMat = new THREE.MeshBasicMaterial({
         color: 0xfbbf24,
         side: THREE.DoubleSide,
         transparent: true,
         opacity: 0
       });
-      this.ringMesh = new THREE.Mesh(ringGeo, this.ringMat);
-      this.ringMesh.position.y = 1.6;
-      this.ringMesh.rotation.x = -Math.PI / 2;
+      this.outerRingMesh = new THREE.Mesh(A.outerRingGeo, this.outerRingMat);
+      this. ringMesh.add(this.outerRingMesh);
       this.group.add(this.ringMesh);
 
       if (!isMobileDevice) {
-        this.light = new THREE.PointLight(0xf59e0b, 1.2, 4.5);
-        this.light.position.set(0, 0.8, 0);
+        this.light = new THREE.PointLight(0x00f0ff, 1.35, 5.2);
+        this.light.position.set(0, 1.05, 0);
         this.group.add(this.light);
       } else {
         this.light = null;
@@ -3734,40 +3945,64 @@
     }
 
     update(dt) {
+      this.animTime += dt;
+
       if (this.isOpened) {
-        // Animación suave de apertura de la tapa del cofre
+        // Animación suave de apertura de la tapa abovedada y levitación del cristal interior
         if (this.openAnim < 1.0) {
-          this.openAnim = Math.min(1.0, this.openAnim + dt * 4.5);
-          this.lidGroup.rotation.x = -this.openAnim * 1.85;
+          this.openAnim = Math.min(1.0, this.openAnim + dt * 4.2);
+          const easeOut = 1 - Math.pow(1 - this.openAnim, 3);
+          this.lidGroup.rotation.x = -easeOut * 1.95;
+        }
+        if (this.interiorCrystal) {
+          this.interiorCrystal.rotation.y += dt * 3.5;
+          this.interiorCrystal.rotation.x += dt * 1.8;
+          this.interiorCrystal.position.y = 0.85 + Math.sin(this.animTime * 4.0) * 0.08;
         }
         return;
       }
+
+      // Giro mecánico continuo del engranaje Chrono (acelera hasta 12x al cargar la apertura)
+      const spinSpeed = 0.8 + this.holdProgress * 14.0;
+      for (let i = 0; i < this.clockGears.length; i++) {
+        this.clockGears[i].rotation.z += dt * spinSpeed;
+      }
+      for (let i = 0; i < this.clockHands.length; i++) {
+        this.clockHands[i].rotation.z -= dt * (spinSpeed * 1.6);
+      }
+
       if (!player) return;
 
-      const dist = this.position.distanceTo(new THREE.Vector3(player.position.x, 0, player.position.z));
+      const dist = Math.hypot(this.position.x - player.position.x, this.position.z - player.position.z);
 
       if (dist < 2.8) {
         this.ringMesh.lookAt(camera.position);
+        this.outerRingMesh.rotation.z -= dt * (1.8 + this.holdProgress * 8.0);
 
         const isHolding = keys.KeyE || isHoldingTouchChest;
         if (isHolding) {
           this.holdProgress = Math.min(1.0, this.holdProgress + dt / this.requiredHoldTime);
           window.chronoAudio.playChestCharging(this.holdProgress);
 
-          this.ringMat.opacity = 0.85;
-          this.ringMesh.scale.setScalar(0.8 + this.holdProgress * 0.4);
+          this.ringMat.color.setHex(0xffea00);
+          this.ringMat.opacity = 0.90;
+          this.outerRingMat.opacity = 0.75;
+          this.ringMesh.scale.setScalar(0.82 + this.holdProgress * 0.42);
 
           if (this.holdProgress >= 1.0) {
             this.open();
           }
         } else {
           this.holdProgress = Math.max(0, this.holdProgress - dt * 2.8);
-          this.ringMat.opacity = 0.45;
-          this.ringMesh.scale.setScalar(0.8);
+          this.ringMat.color.setHex(0x00f0ff);
+          this.ringMat.opacity = 0.50;
+          this.outerRingMat.opacity = 0.35;
+          this.ringMesh.scale.setScalar(0.82 + Math.sin(this.animTime * 4.0) * 0.04);
         }
       } else {
         this.holdProgress = Math.max(0, this.holdProgress - dt * 3.5);
         this.ringMat.opacity = 0;
+        this.outerRingMat.opacity = 0;
       }
     }
 
@@ -3776,6 +4011,17 @@
       this.isOpened = true;
       window.chronoAudio.playChestUnlock();
       this.ringMat.opacity = 0;
+      this.outerRingMat.opacity = 0;
+      if (this.light) {
+        this.light.color.setHex(0xffea00);
+        this.light.intensity = 2.2;
+      }
+
+      // Ráfaga de chispas doradas al desbloquear la cerradura Chrono
+      const burstOrigin = new THREE.Vector3(this.position.x, 0.9, this.position.z);
+      for (let s = 0; s < 10; s++) {
+        sparkParticles.push(new SparkParticle3D(burstOrigin, new THREE.Vector3(0, 1, 0)));
+      }
 
       // ARMAS SORTEADAS EN LOS COFRES
       const chestLootPool = [
@@ -3818,6 +4064,8 @@
 
     destroy() {
       if (this.group) scene.remove(this.group);
+      if (this.ringMat) this.ringMat.dispose();
+      if (this.outerRingMat) this.outerRingMat.dispose();
     }
   }
 
@@ -6529,7 +6777,7 @@
       for (const ch of chests) {
         ch.update(dt);
         if (!ch.isOpened && player) {
-          const dist = ch.position.distanceTo(new THREE.Vector3(player.position.x, 0, player.position.z));
+          const dist = Math.hypot(ch.position.x - player.position.x, ch.position.z - player.position.z);
           if (dist < 2.8 && (keys.KeyE || isHoldingTouchChest)) {
             isInteractingChest = true;
           }
