@@ -927,8 +927,9 @@
   let forceMobileMode = isMobileDevice;
 
   // Resolución interna: en móvil máximo 1.0 para ahorrar GPU fill-rate; en PC hasta 1.5x para máxima nitidez en armas 3D
-  const MAX_PIXEL_RATIO = Math.min(window.devicePixelRatio || 1, forceMobileMode ? 1.0 : 1.5);
-  let currentPixelRatio = Math.min(MAX_PIXEL_RATIO, forceMobileMode ? 1.0 : 1.35);
+  const MAX_PIXEL_RATIO = Math.min(window.devicePixelRatio || 1, forceMobileMode ? 1.5 : 2.0);
+  // Arranca moderado; la resolución dinámica sube hasta el máximo si hay FPS de sobra y baja si hay tirones
+  let currentPixelRatio = Math.min(MAX_PIXEL_RATIO, forceMobileMode ? 1.0 : 1.5);
   const renderer = new THREE.WebGLRenderer({
     canvas: canvas,
     antialias: !forceMobileMode,
@@ -6565,6 +6566,27 @@
       if (gameState !== 'playing' || !player) return;
       player.shoot();
     });
+  }
+
+  // Botón Apuntar: toque para activar/desactivar la mira (más cómodo en celular que mantener pulsado)
+  const btnTouchAim = document.getElementById('btn-touch-aim');
+  if (btnTouchAim) {
+    const toggleAim = () => {
+      window.chronoAudio.init();
+      if (gameState !== 'playing' || !player) return;
+      if (player.isAiming) player.stopAiming(); else player.startAiming();
+      btnTouchAim.classList.toggle('aiming-on', player.isAiming);
+    };
+    btnTouchAim.addEventListener('touchstart', (e) => {
+      e.preventDefault(); e.stopPropagation();
+      toggleAim();
+    }, { passive: false });
+    btnTouchAim.addEventListener('touchend', (e) => { e.preventDefault(); e.stopPropagation(); }, { passive: false });
+    btnTouchAim.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); });
+    // Sincroniza el estado visual si la mira se apaga por otra vía (muerte, reinicio)
+    setInterval(() => {
+      btnTouchAim.classList.toggle('aiming-on', !!(player && gameState === 'playing' && player.isAiming));
+    }, 200);
   }
 
   function updateJoystickVisual(dx, dy) {

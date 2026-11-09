@@ -1622,17 +1622,49 @@ body.is-touch #mobile-controls-layer {
 
 /* Zona de Acciones Táctiles (Mitad Derecha) */
 #mobile-actions-zone {
+  /* Disposición en arco ergonómico alrededor del pulgar derecho */
   position: absolute;
-  right: 20px;
-  bottom: 20px;
-  display: flex;
-  flex-wrap: wrap;
-  max-width: 360px;
-  justify-content: flex-end;
-  gap: 14px;
-  align-items: flex-end;
+  right: 16px;
+  bottom: 16px;
+  width: 290px;
+  height: 270px;
+  pointer-events: none; /* solo los botones capturan toque */
+}
+
+#mobile-actions-zone .mobile-action-btn {
+  position: absolute;
   pointer-events: auto;
 }
+#mobile-actions-zone .shoot-btn  { right: 0;     bottom: 0; }
+#mobile-actions-zone .aim-btn    { right: 112px; bottom: 0; }
+#mobile-actions-zone .punch-btn  { right: 6px;   bottom: 112px; }
+#mobile-actions-zone .throw-btn  { right: 96px;  bottom: 96px; }
+#mobile-actions-zone .chest-btn  { right: 190px; bottom: 60px; }
+#mobile-actions-zone .medkit-btn { right: 8px;   bottom: 202px; }
+
+/* Botón Apuntar (ADS) */
+.aim-btn {
+  width: 76px;
+  height: 76px;
+  background: radial-gradient(circle, rgba(167, 139, 250, 0.4) 0%, rgba(14, 10, 30, 0.9) 80%);
+  border: 2.5px solid #a78bfa;
+  color: #fff;
+  box-shadow: 0 0 22px rgba(167, 139, 250, 0.5), inset 0 0 12px rgba(167, 139, 250, 0.3);
+}
+.aim-btn.active-touch,
+.aim-btn.aiming-on {
+  background: #a78bfa;
+  color: #0b0618;
+  box-shadow: 0 0 36px #a78bfa;
+}
+.chest-btn {
+  width: 62px;
+  height: 62px;
+  background: radial-gradient(circle, rgba(251, 146, 60, 0.35) 0%, rgba(28, 16, 8, 0.9) 80%);
+  border: 2.5px solid #fb923c;
+  color: #fff;
+}
+.chest-btn.active-touch { background: #fb923c; color: #1a0e04; }
 
 .mobile-action-btn {
   border-radius: 50%;
@@ -2091,9 +2123,10 @@ body.is-touch .mobile-only {
     height: 52px;
   }
   #mobile-actions-zone {
-    right: 14px;
-    bottom: 14px;
-    gap: 12px;
+    right: 10px;
+    bottom: 8px;
+    transform: scale(0.82);
+    transform-origin: bottom right;
   }
 }
 
