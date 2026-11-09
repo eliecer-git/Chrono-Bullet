@@ -926,9 +926,9 @@
   // Permitir forzar modo móvil para pruebas en PC
   let forceMobileMode = isMobileDevice;
 
-  // Resolución interna: en móvil máximo 1.0 para ahorrar GPU fill-rate (vital para Redmi 10)
-  const MAX_PIXEL_RATIO = Math.min(window.devicePixelRatio || 1, forceMobileMode ? 1.0 : 1.15);
-  let currentPixelRatio = Math.min(MAX_PIXEL_RATIO, forceMobileMode ? 1.0 : 1.0);
+  // Resolución interna: en móvil máximo 1.0 para ahorrar GPU fill-rate; en PC hasta 1.5x para máxima nitidez en armas 3D
+  const MAX_PIXEL_RATIO = Math.min(window.devicePixelRatio || 1, forceMobileMode ? 1.0 : 1.5);
+  let currentPixelRatio = Math.min(MAX_PIXEL_RATIO, forceMobileMode ? 1.0 : 1.35);
   const renderer = new THREE.WebGLRenderer({
     canvas: canvas,
     antialias: !forceMobileMode,
@@ -1455,63 +1455,63 @@
   const WEAPON_GLB_CONFIG = {
     pistol: {
       url: 'modelos/pistola.glb',
-      targetLength: 0.40,
+      targetLength: 0.45,
       rotX: 0,
       rotY: -Math.PI / 2,
       rotZ: 0,
       offsetX: 0.0,
-      offsetY: -0.155,
-      offsetZ: -0.085
+      offsetY: -0.175,
+      offsetZ: -0.075
     },
     smg: {
       url: 'modelos/subfusil.glb',
-      targetLength: 0.58,
+      targetLength: 0.65,
+      rotX: 0,
+      rotY: -Math.PI / 2,
+      rotZ: 0,
+      offsetX: 0.0,
+      offsetY: -0.205,
+      offsetZ: -0.015
+    },
+    rifle: {
+      url: 'modelos/fusil.glb',
+      targetLength: 0.85,
       rotX: 0,
       rotY: -Math.PI / 2,
       rotZ: 0,
       offsetX: 0.0,
       offsetY: -0.185,
-      offsetZ: -0.020
+      offsetZ: -0.010
     },
-    rifle: {
-      url: 'modelos/fusil.glb',
+    shotgun: {
+      url: 'modelos/escopeta.glb',
+      targetLength: 0.86,
+      rotX: 0,
+      rotY: -Math.PI / 2,
+      rotZ: 0,
+      offsetX: 0.0,
+      offsetY: -0.015,
+      offsetZ: 0.010
+    },
+    sniper: {
+      url: 'modelos/francotirador.glb',
+      targetLength: 1.05,
+      rotX: 0,
+      rotY: -Math.PI / 2,
+      rotZ: 0,
+      offsetX: 0.0,
+      offsetY: -0.005,
+      offsetZ: -0.045
+    },
+    plasma: {
+      url: 'modelos/canon_plasma.glb',
       targetLength: 0.76,
       rotX: 0,
       rotY: -Math.PI / 2,
       rotZ: 0,
       offsetX: 0.0,
-      offsetY: -0.165,
-      offsetZ: -0.020
-    },
-    shotgun: {
-      url: 'modelos/escopeta.glb',
-      targetLength: 0.78,
-      rotX: 0,
-      rotY: -Math.PI / 2,
-      rotZ: 0,
-      offsetX: 0.0,
-      offsetY: -0.020,
-      offsetZ: 0.0
-    },
-    sniper: {
-      url: 'modelos/francotirador.glb',
-      targetLength: 0.96,
-      rotX: 0,
-      rotY: -Math.PI / 2,
-      rotZ: 0,
-      offsetX: 0.0,
-      offsetY: -0.010,
-      offsetZ: -0.060
-    },
-    plasma: {
-      url: 'modelos/canon_plasma.glb',
-      targetLength: 0.68,
-      rotX: 0,
-      rotY: -Math.PI / 2,
-      rotZ: 0,
-      offsetX: 0.0,
-      offsetY: -0.155,
-      offsetZ: -0.080
+      offsetY: -0.175,
+      offsetZ: -0.065
     }
   };
 
@@ -1590,6 +1590,20 @@
               if (baseMat) {
                 baseMat.userData = baseMat.userData || {};
                 baseMat.userData.isSharedGLBAsset = true;
+                if (baseMat.map) {
+                  // Alinear encoding con renderer (LinearEncoding) para evitar oscurecimiento sRGB->Linear sin salida sRGB
+                  baseMat.map.encoding = THREE.LinearEncoding;
+                  if (renderer && renderer.capabilities) {
+                    baseMat.map.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+                  }
+                  baseMat.map.needsUpdate = true;
+                }
+                baseMat.normalMap = null;
+                if (baseMat.roughness !== undefined) baseMat.roughness = 0.34;
+                if (baseMat.metalness !== undefined) baseMat.metalness = 0.26;
+                if (baseMat.envMapIntensity !== undefined) baseMat.envMapIntensity = 1.3;
+                applyFortniteShader(baseMat, { edge: 0.42, grad: 0.16, rim: 0.26 });
+                baseMat.needsUpdate = true;
               }
 
               const mobileMat = new THREE.MeshLambertMaterial({
@@ -1754,6 +1768,8 @@
     const neonHex = isGold ? 0xffea00 : (isVortex ? 0xc084fc : (isMatrix ? 0x22c55e : (isInferno ? 0xff3b30 : pal.primaryHex)));
     const skinNeonMat = createStylizedPBR(neonHex, neonHex, 1.8, 0.1, 0.2);
 
+    let usedGLB = false;
+
     if (!weaponType || weaponType === 'fist') {
       // ========================================================
       // 1. PUÑOS: GUANTELETES DE COMBATE CON PISTONES HIDRÁULICOS
@@ -1808,54 +1824,55 @@
       group.add(conduit);
 
     } else if (weaponType === 'pistol') {
-      if (!instantiateCachedGLBWeapon('pistol', group, activeSkin)) {
-        if (typeof buildPistolMesh === 'function') {
-          buildPistolMesh(group, { activeSkin, createStylizedPBR, applyFortniteShader });
-        }
+      if (instantiateCachedGLBWeapon('pistol', group, activeSkin)) {
+        usedGLB = true;
+      } else if (typeof buildPistolMesh === 'function') {
+        buildPistolMesh(group, { activeSkin, createStylizedPBR, applyFortniteShader });
       }
     } else if (weaponType === 'shotgun') {
-      if (!instantiateCachedGLBWeapon('shotgun', group, activeSkin)) {
-        if (typeof buildShotgunMesh === 'function') {
-          buildShotgunMesh(group, { activeSkin, createStylizedPBR, applyFortniteShader });
-        }
+      if (instantiateCachedGLBWeapon('shotgun', group, activeSkin)) {
+        usedGLB = true;
+      } else if (typeof buildShotgunMesh === 'function') {
+        buildShotgunMesh(group, { activeSkin, createStylizedPBR, applyFortniteShader });
       }
     } else if (weaponType === 'smg') {
-      if (!instantiateCachedGLBWeapon('smg', group, activeSkin)) {
-        if (typeof buildSmgMesh === 'function') {
-          buildSmgMesh(group, { activeSkin, createStylizedPBR, applyFortniteShader, skinNeonMat, getSmgGradientTexture });
-        }
+      if (instantiateCachedGLBWeapon('smg', group, activeSkin)) {
+        usedGLB = true;
+      } else if (typeof buildSmgMesh === 'function') {
+        buildSmgMesh(group, { activeSkin, createStylizedPBR, applyFortniteShader, skinNeonMat, getSmgGradientTexture });
       }
     } else if (weaponType === 'rifle') {
-      if (!instantiateCachedGLBWeapon('rifle', group, activeSkin)) {
-        if (typeof buildRifleMesh === 'function') {
-          buildRifleMesh(group, { activeSkin, createStylizedPBR, applyFortniteShader, skinNeonMat, getScarGradientTexture });
-        }
+      if (instantiateCachedGLBWeapon('rifle', group, activeSkin)) {
+        usedGLB = true;
+      } else if (typeof buildRifleMesh === 'function') {
+        buildRifleMesh(group, { activeSkin, createStylizedPBR, applyFortniteShader, skinNeonMat, getScarGradientTexture });
       }
     } else if (weaponType === 'sniper') {
-      if (!instantiateCachedGLBWeapon('sniper', group, activeSkin)) {
-        if (typeof buildSniperMesh === 'function') {
-          buildSniperMesh(group, { activeSkin, createStylizedPBR, applyFortniteShader, skinNeonMat });
-        }
+      if (instantiateCachedGLBWeapon('sniper', group, activeSkin)) {
+        usedGLB = true;
+      } else if (typeof buildSniperMesh === 'function') {
+        buildSniperMesh(group, { activeSkin, createStylizedPBR, applyFortniteShader, skinNeonMat });
       }
     } else if (weaponType === 'plasma') {
-      if (!instantiateCachedGLBWeapon('plasma', group, activeSkin)) {
-        if (typeof buildPlasmaMesh === 'function') {
-          buildPlasmaMesh(group, { activeSkin, createStylizedPBR, applyFortniteShader });
-        }
+      if (instantiateCachedGLBWeapon('plasma', group, activeSkin)) {
+        usedGLB = true;
+      } else if (typeof buildPlasmaMesh === 'function') {
+        buildPlasmaMesh(group, { activeSkin, createStylizedPBR, applyFortniteShader });
       }
     }
 
-    if (isViewModel && weaponType && weaponType !== 'fist') {
+    if (!usedGLB && isViewModel && weaponType && weaponType !== 'fist') {
       addPlayerHandsToWeapon(group, weaponType, neonHex, skinNeonMat);
     }
-
 
     // Si está en modo móvil o para reducir llamadas de dibujo, optimizamos la jerarquía del arma
     // fusionando piezas estáticas con el mismo material mientras protegemos piezas dinámicas
     optimizeWeaponMeshes(group);
 
-    // Hacer el arma más "Chunky" (proporciones exageradas tipo Fortnite)
-    group.scale.set(1.2, 1.2, 1.0);
+    // Conservar proporción uniforme 1:1:1 en modelos 3D .glb; escala Chunky solo en armas procedurales
+    if (!usedGLB) {
+      group.scale.set(1.2, 1.2, 1.0);
+    }
 
     return group;
   }
@@ -6605,9 +6622,10 @@
       perfTimeAccum += dt;
       if (perfFrameCount >= 30) {
         const avgMs = (perfTimeAccum / perfFrameCount) * 1000;
+        const minRatio = forceMobileMode ? 0.75 : 1.0;
         let newRatio = currentPixelRatio;
-        if (avgMs > 22 && currentPixelRatio > 0.75) {
-          newRatio = Math.max(0.75, currentPixelRatio - 0.15);
+        if (avgMs > 22 && currentPixelRatio > minRatio) {
+          newRatio = Math.max(minRatio, currentPixelRatio - 0.10);
         } else if (avgMs < 16.5 && currentPixelRatio < MAX_PIXEL_RATIO) {
           newRatio = Math.min(MAX_PIXEL_RATIO, currentPixelRatio + 0.05);
         }

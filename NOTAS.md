@@ -20,12 +20,12 @@
 
 - **`index.html`**: Estructura principal del juego, contenedor del lienzo 3D (canvas), interfaz de usuario (HUD de salud, munición, tiempo y menús). Incluye la pantalla de acceso (`screen-login`: Google, Cuenta Chrono e Invitado), el botón de cerrar sesión del menú y la carga de `DRACOLoader.js` y `GLTFLoader.js` (Three.js r128).
 - **`style.css`**: Hojas de estilo para la interfaz de usuario, tipografías, animaciones de pantalla, menús y elementos superpuestos del HUD.
-- **`modelos/pistola.glb`**: Modelo 3D optimizado de la pistola táctica (`pistol`, 9.000 triángulos, texturas 1024×1024 px JPEG, 0,51 MB), generado a partir de `diseño 3D armas/pistola tactica.glb`.
-- **`modelos/subfusil.glb`**: Modelo 3D optimizado del subfusil automático (`smg`, 9.000 triángulos, texturas 1024×1024 px JPEG, 0,59 MB), generado a partir de `diseño 3D armas/subfusil automatico.glb`.
-- **`modelos/fusil.glb`**: Modelo 3D optimizado del rifle de asalto (`rifle`, 9.000 triángulos, texturas 1024×1024 px JPEG, 0,50 MB), generado a partir de `diseño 3D armas/rifle de asalto.glb`.
-- **`modelos/escopeta.glb`**: Modelo 3D optimizado de la escopeta pesada (`shotgun`, 9.000 triángulos, texturas 1024×1024 px JPEG, 0,76 MB), generado a partir de `diseño 3D armas/escopeta.glb`.
-- **`modelos/francotirador.glb`**: Modelo 3D optimizado del rifle francotirador (`sniper`, 9.000 triángulos, texturas 1024×1024 px JPEG, 0,75 MB), generado a partir de `diseño 3D armas/francotirador.glb`.
-- **`modelos/canon_plasma.glb`**: Modelo 3D optimizado del cañón de plasma (`plasma`, 8.999 triángulos, texturas 1024×1024 px JPEG, 0,52 MB), generado a partir de `diseño 3D armas/cañon de plasma.glb`.
+- **`modelos/pistola.glb`**: Modelo 3D optimizado de la pistola táctica (`pistol`, 18.000 triángulos con normales ponderadas, textura HD 1024×1024 px con biseles y cavidad integrados, 0,73 MB), generado a partir de `diseño 3D armas/pistola tactica.glb`.
+- **`modelos/subfusil.glb`**: Modelo 3D optimizado del subfusil automático (`smg`, 20.000 triángulos con normales ponderadas, textura HD 1536×1536 px con biseles y cavidad integrados, 1,25 MB), generado a partir de `diseño 3D armas/subfusil automatico.glb`.
+- **`modelos/fusil.glb`**: Modelo 3D optimizado del rifle de asalto (`rifle`, 22.000 triángulos con normales ponderadas, textura HD 1536×1536 px con biseles y cavidad integrados, 1,04 MB), generado a partir de `diseño 3D armas/rifle de asalto.glb`.
+- **`modelos/escopeta.glb`**: Modelo 3D optimizado de la escopeta pesada (`shotgun`, 20.000 triángulos con normales ponderadas, textura HD 1536×1536 px mejorada, 1,40 MB), generado a partir de `diseño 3D armas/escopeta.glb`.
+- **`modelos/francotirador.glb`**: Modelo 3D optimizado del rifle francotirador (`sniper`, 22.000 triángulos con normales ponderadas, textura HD 1536×1536 px mejorada, 1,42 MB), generado a partir de `diseño 3D armas/francotirador.glb`.
+- **`modelos/canon_plasma.glb`**: Modelo 3D optimizado del cañón de plasma (`plasma`, 20.000 triángulos con normales ponderadas, textura HD 1536×1536 px con biseles y cavidad integrados, 1,08 MB), generado a partir de `diseño 3D armas/cañon de plasma.glb`.
 - **`modelos/armas_glb_bundle.js`**: Paquete JS con los 6 modelos `.glb` codificados en Base64 y texturas en `data:image/jpeg;base64` para permitir la carga directa con `gltfLoader.parse()` sin errores de CORS al abrir `index.html` mediante `file://`.
 - **`armas/pistola.js`**: Módulo 3D procedural de respaldo de la pistola táctica Chrono (geometría, materiales PBR, corredera, armazón y detalles cronográficos).
 - **`armas/subfusil.js`**: Módulo 3D del subfusil Vector Chrono (geometría aerodinámica, emblema cronográfico, cargador extendido y culata retráctil).
